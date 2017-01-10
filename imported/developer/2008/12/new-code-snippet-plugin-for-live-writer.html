@@ -1,0 +1,18 @@
+<p>I am trying out a new <a href="http://gallery.live.com/liveItemDetail.aspx?li=d8835a5e-28da-4242-82eb-e1a006b083b9&amp;bt=9&amp;pl=8" target="_blank">code snippet plug-in</a> for <a href="http://windowslivewriter.spaces.live.com/" target="_blank">Live Writer</a>.</p>  <pre class="code"><span style="color:blue;">Public Class </span>CommitDB
+    <span style="color:blue;">Public Function </span>GetCommitStatusAll() <span style="color:blue;">As </span>DataSet
+        <span style="color:green;">' Create Instance of Connection and Command Object
+        </span><span style="color:blue;">Dim </span>myConnection <span style="color:blue;">As New </span>SqlConnection(ConfigurationManager.AppSettings(<span style="color:#a31515;">&quot;NorthstarConnectionString&quot;</span>))
+        <span style="color:blue;">Dim </span>myCommand <span style="color:blue;">As New </span>SqlDataAdapter(<span style="color:#a31515;">&quot;GetCommitStatusAll&quot;</span>, myConnection)
+
+        <span style="color:green;">' Mark the Command as a SPROC
+        </span>myCommand.SelectCommand.CommandType = CommandType.StoredProcedure
+
+        <span style="color:green;">' Create and Fill the DataSet
+        </span><span style="color:blue;">Dim </span>myDataSet <span style="color:blue;">As New </span>DataSet
+        myCommand.Fill(myDataSet)
+
+        <span style="color:green;">' Return the DataSet
+        </span><span style="color:blue;">Return </span>myDataSet
+    <span style="color:blue;">End Function
+End Class</span></pre>
+Lets see how it looks on the blogs!<a href="http://11011.net/software/vspaste"></a><img src="http://renevo.com/aggbug.aspx?PostID=2101" width="1" height="1">

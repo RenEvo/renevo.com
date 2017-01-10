@@ -1,0 +1,23 @@
+<P>Tonight on <A href="http://www.stackoverflow.com/">Stackoverflow</A> a gentlemen asked <A class="" href="http://stackoverflow.com/questions/531191/c-adding-a-removeint-index-method-to-the-net-queue-class" target=_blank>if it would be possible to add an extension method to the Queue&lt;T&gt; class to remove an item by index</A>. Anyone who has worked with this class knows that there is no Add or Remove methods, but instead a Dequeue and Enqueue pair of methods. Well, the problem with Dequeue is that it only removes an item from the end of the queue, so that's not really going to work for this guy.</P>
+<BLOCKQUOTE>
+<P>"I thought of a quick and dirty solution: Inherit from the Queue class and add your own RemoveAt method."</P></BLOCKQUOTE>
+<P>Hey! Bloody brilliant, right? Wrong. The catch 22 is that there is no way to remove an item from the queue class itself except from the Dequeue method, which simply doesn't cut it. So to get around this I had to enumerate through all the items, add each item to a new queue, skipping the index we want to remove. Well, this is a neat solution, however it creates a new queue everytime you need to remove an item by index.</P>
+<P>It doesn't sound so bad, but consider the code:</P>
+<BLOCKQUOTE>
+<P><B>Custom Queue&lt;T&gt; class</B></P></BLOCKQUOTE>
+<BLOCKQUOTE>
+<P><A href="http://renevo.com/blogs/developer/queuea_3976FAD4.png"><IMG title=queuea style="BORDER-RIGHT:0px;BORDER-TOP:0px;DISPLAY:inline;BORDER-LEFT:0px;BORDER-BOTTOM:0px;" height=194 alt=queuea src="http://renevo.com/blogs/developer/queuea_thumb_584D6EB2.png" width=459 border=0></A> </P>
+<P><B>Test Code in Main()</B></P></BLOCKQUOTE>
+<BLOCKQUOTE>
+<P><A href="http://renevo.com/blogs/developer/queueb_257D683E.png"><IMG title=queueb style="BORDER-RIGHT:0px;BORDER-TOP:0px;DISPLAY:inline;BORDER-LEFT:0px;BORDER-BOTTOM:0px;" height=284 alt=queueb src="http://renevo.com/blogs/developer/queueb_thumb_0BA9320F.png" width=517 border=0></A> </P></BLOCKQUOTE>
+<P>&nbsp;</P>
+<P>I knew as soon as I wrote this that it would be a significant performance hit, but I didn't realize just how bad until I looked a bit deeper. Essentially this means that each time RemoveAt is called, the queue is enumerated, and a new queue is created. If we have a queue with 5000 items, and we needed to remove 2500 of them, this would result in 12,502,500 calls to the Count property, and 12,410,000 calls to the Enqueue method. A lot, much? I didn’t get this data out of thin air though, I used Visual Studios performance tools, so let’s take a look at the actual benchmarks:</P>
+<P>&nbsp;</P>
+<P><A href="http://renevo.com/blogs/developer/perfs_2288038B.png"><IMG title=perfs style="BORDER-RIGHT:0px;BORDER-TOP:0px;DISPLAY:inline;BORDER-LEFT:0px;BORDER-BOTTOM:0px;" height=484 alt=perfs src="http://renevo.com/blogs/developer/perfs_thumb_256D4271.png" width=436 border=0></A> </P>
+<P>&nbsp;</P>
+<P>Ouch! Approximately 9 minutes to remove 2500 items from a queue with 5000 items.. That is definitely not performance savvy. So I ran a comparison using a generic list. </P>
+<P>&nbsp;</P>
+<P>&nbsp;</P>
+<P><A href="http://renevo.com/blogs/developer/perfs2_414E519C.png"><IMG title=perfs2 style="BORDER-RIGHT:0px;BORDER-TOP:0px;DISPLAY:inline;BORDER-LEFT:0px;BORDER-BOTTOM:0px;" height=484 alt=perfs2 src="http://renevo.com/blogs/developer/perfs2_thumb_418AD4D1.png" width=478 border=0></A> </P>
+<P>&nbsp;</P>
+<P>4.36 milliseconds… What a time difference! So you can see that a small “innocent” “work-around” can be absolutely detrimental to your applications performance. Oops! Luckily I thought ahead of time and told the guy someone else would probably post a better solution, and it was as simple as <A class="" href="http://stackoverflow.com/questions/531191/c-adding-a-removeint-index-method-to-the-net-queue-class/531231#531231" target=_blank>recommending a generic List&lt;T&gt;</A>. :P</P><img src="http://renevo.com/aggbug.aspx?PostID=2154" width="1" height="1">
