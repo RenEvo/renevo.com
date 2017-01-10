@@ -1,20 +1,15 @@
 package main
 
 import (
-	"log"
-
-	"path"
-
-	"io/ioutil"
-	"os"
-	"strings"
-
-	"fmt"
-
 	"bytes"
+	"fmt"
+	"io/ioutil"
+	"log"
 	"net/http"
-
 	"net/url"
+	"os"
+	"path"
+	"strings"
 
 	"github.com/metal3d/go-slugify"
 	"github.com/mmcdole/gofeed"
@@ -23,7 +18,7 @@ import (
 func main() {
 
 	feed := "http://renevo.com/blogs/developer/atom.aspx"
-	output := path.Clean("./output")
+	output := path.Clean("./imported")
 
 	parser := gofeed.NewParser()
 
