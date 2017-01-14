@@ -1,0 +1,438 @@
+<p>So a while back some of you may know that I was writing a pure .Net emulator.&#160; That went &quot;ok&quot; and I had made zone in both pre-cu and nge based clients.&#160; But after a while, the time constraints just couldn't be dealt with, and the project was, how do I say, huge?</p>  <p><img height="387" src="http://www.renevo.com/photos/swgemudotnetscreenshots/images/169/original.aspx" width="640" /></p>  <p>One of the big issues that I had when writing the emulator in .Net was the encryption, decryption, and the crc calculations.&#160; Originally I had just used a c++ api to pull it off.&#160; This bothered me literally for some time as I just wanted a pure .Net solution.</p>  <p>So today, I spent a bit of time looking at the great documentation on the encryption/decryption algorigthm that the SWGEmu team has put up (if you recall, I used to be a part of that team for a very short lived time).</p>  <p>Below is the test app that I created and played around with to get these things working in pure (you got it) VB.Net.&#160; I know the C# port would have been WAY easier using unsafe or even almost just duplicating the code, but I wanted a direct port that was spot on.</p>  <p>&#160;</p>  <div class="csharpcode">   <pre class="alt"><span class="lnum">   1:  </span><span class="kwrd">Public</span> <span class="kwrd">Class</span> Program</pre>
+
+  <pre><span class="lnum">   2:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">   3:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Shared</span> <span class="kwrd">Sub</span> Main(<span class="kwrd">ByVal</span> args() <span class="kwrd">As</span> <span class="kwrd">String</span>)</pre>
+
+  <pre><span class="lnum">   4:  </span>        <span class="kwrd">Dim</span> rawArray() <span class="kwrd">As</span> <span class="kwrd">Byte</span> = <span class="kwrd">New</span> <span class="kwrd">Byte</span>() {0, 9, 0, 1, 0, 2, &amp;HAB, &amp;H43, &amp;HE3, &amp;HD5, 0, &amp;HFF, 0, &amp;H11, &amp;H45, &amp;H32, &amp;H76, &amp;H43, &amp;HD4, &amp;HF1, 0, &amp;HAB, &amp;HCD}</pre>
+
+  <pre class="alt"><span class="lnum">   5:  </span>        <span class="kwrd">Dim</span> encryptedArray() <span class="kwrd">As</span> <span class="kwrd">Byte</span></pre>
+
+  <pre><span class="lnum">   6:  </span>        <span class="kwrd">Dim</span> decryptedArray() <span class="kwrd">As</span> <span class="kwrd">Byte</span></pre>
+
+  <pre class="alt"><span class="lnum">   7:  </span>        <span class="kwrd">Dim</span> crcSeed <span class="kwrd">As</span> <span class="kwrd">Integer</span> = &amp;H1D4E3287</pre>
+
+  <pre><span class="lnum">   8:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">   9:  </span>        Console.WriteLine(<span class="str">&quot;Raw Bytes:&quot;</span>)</pre>
+
+  <pre><span class="lnum">  10:  </span>        <span class="kwrd">For</span> <span class="kwrd">Each</span> bt <span class="kwrd">As</span> <span class="kwrd">Byte</span> <span class="kwrd">In</span> rawArray</pre>
+
+  <pre class="alt"><span class="lnum">  11:  </span>            Console.Write(<span class="str">&quot;{0:X2} &quot;</span>, bt)</pre>
+
+  <pre><span class="lnum">  12:  </span>        <span class="kwrd">Next</span></pre>
+
+  <pre class="alt"><span class="lnum">  13:  </span>        Console.WriteLine()</pre>
+
+  <pre><span class="lnum">  14:  </span>        Console.WriteLine()</pre>
+
+  <pre class="alt"><span class="lnum">  15:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  16:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  17:  </span>        encryptedArray = Encrypt(Strip(rawArray), crcSeed)</pre>
+
+  <pre><span class="lnum">  18:  </span>        Console.WriteLine(<span class="str">&quot;Encrypted Bytes:&quot;</span>)</pre>
+
+  <pre class="alt"><span class="lnum">  19:  </span>        <span class="kwrd">For</span> <span class="kwrd">Each</span> bt <span class="kwrd">As</span> <span class="kwrd">Byte</span> <span class="kwrd">In</span> encryptedArray</pre>
+
+  <pre><span class="lnum">  20:  </span>            Console.Write(<span class="str">&quot;{0:X2} &quot;</span>, bt)</pre>
+
+  <pre class="alt"><span class="lnum">  21:  </span>        <span class="kwrd">Next</span></pre>
+
+  <pre><span class="lnum">  22:  </span>        Console.WriteLine()</pre>
+
+  <pre class="alt"><span class="lnum">  23:  </span>        Console.WriteLine()</pre>
+
+  <pre><span class="lnum">  24:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  25:  </span>        decryptedArray = Decrypt(encryptedArray, crcSeed)</pre>
+
+  <pre><span class="lnum">  26:  </span>        Console.WriteLine(<span class="str">&quot;Decrypted Bytes:&quot;</span>)</pre>
+
+  <pre class="alt"><span class="lnum">  27:  </span>        <span class="kwrd">For</span> <span class="kwrd">Each</span> bt <span class="kwrd">As</span> <span class="kwrd">Byte</span> <span class="kwrd">In</span> decryptedArray</pre>
+
+  <pre><span class="lnum">  28:  </span>            Console.Write(<span class="str">&quot;{0:X2} &quot;</span>, bt)</pre>
+
+  <pre class="alt"><span class="lnum">  29:  </span>        <span class="kwrd">Next</span></pre>
+
+  <pre><span class="lnum">  30:  </span>        Console.WriteLine()</pre>
+
+  <pre class="alt"><span class="lnum">  31:  </span>        Console.WriteLine()</pre>
+
+  <pre><span class="lnum">  32:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  33:  </span>        Console.WriteLine(<span class="str">&quot;CRC Test&quot;</span>)</pre>
+
+  <pre><span class="lnum">  34:  </span>        <span class="kwrd">Dim</span> crc <span class="kwrd">As</span> <span class="kwrd">Integer</span> = CRC32(<span class="kwrd">New</span> <span class="kwrd">Byte</span>() {&amp;H0, &amp;H5, &amp;HAA, &amp;HBB, &amp;HCC, &amp;HDD, &amp;H0, &amp;H6, &amp;H0}, 9, crcSeed)</pre>
+
+  <pre class="alt"><span class="lnum">  35:  </span>        Console.WriteLine(<span class="str">&quot;My CRC32:  {0:X4}&quot;</span>, crc)</pre>
+
+  <pre><span class="lnum">  36:  </span>        crc = API.GenerateCrc(<span class="kwrd">New</span> <span class="kwrd">Byte</span>() {&amp;H0, &amp;H5, &amp;HAA, &amp;HBB, &amp;HCC, &amp;HDD, &amp;H0, &amp;H6, &amp;H0}, crcSeed)</pre>
+
+  <pre class="alt"><span class="lnum">  37:  </span>        Console.WriteLine(<span class="str">&quot;C++ CRC32: {0:X4}&quot;</span>, crc)</pre>
+
+  <pre><span class="lnum">  38:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  39:  </span>        Console.ReadLine()</pre>
+
+  <pre><span class="lnum">  40:  </span>    <span class="kwrd">End</span> <span class="kwrd">Sub</span></pre>
+
+  <pre class="alt"><span class="lnum">  41:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  42:  </span>    <span class="kwrd">Private</span> <span class="kwrd">Shared</span> <span class="kwrd">Function</span> Strip(<span class="kwrd">ByVal</span> inData() <span class="kwrd">As</span> <span class="kwrd">Byte</span>) <span class="kwrd">As</span> <span class="kwrd">Byte</span>()</pre>
+
+  <pre class="alt"><span class="lnum">  43:  </span>        <span class="kwrd">Dim</span> retVal <span class="kwrd">As</span> <span class="kwrd">New</span> List(Of <span class="kwrd">Byte</span>)</pre>
+
+  <pre><span class="lnum">  44:  </span>        retVal.AddRange(inData)</pre>
+
+  <pre class="alt"><span class="lnum">  45:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  46:  </span>        <span class="rem">'strip channel and op code</span></pre>
+
+  <pre class="alt"><span class="lnum">  47:  </span>        <span class="kwrd">If</span> retVal(0) = 0 <span class="kwrd">Then</span></pre>
+
+  <pre><span class="lnum">  48:  </span>            retVal.RemoveAt(0)</pre>
+
+  <pre class="alt"><span class="lnum">  49:  </span>            retVal.RemoveAt(0)</pre>
+
+  <pre><span class="lnum">  50:  </span>        <span class="kwrd">End</span> <span class="kwrd">If</span></pre>
+
+  <pre class="alt"><span class="lnum">  51:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  52:  </span>        <span class="rem">'strip crc</span></pre>
+
+  <pre class="alt"><span class="lnum">  53:  </span>        retVal.RemoveAt(retVal.Count - 1)</pre>
+
+  <pre><span class="lnum">  54:  </span>        retVal.RemoveAt(retVal.Count - 1)</pre>
+
+  <pre class="alt"><span class="lnum">  55:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  56:  </span>        <span class="kwrd">Return</span> retVal.ToArray</pre>
+
+  <pre class="alt"><span class="lnum">  57:  </span>    <span class="kwrd">End</span> <span class="kwrd">Function</span></pre>
+
+  <pre><span class="lnum">  58:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  59:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Shared</span> <span class="kwrd">Function</span> Encrypt(<span class="kwrd">ByVal</span> inData() <span class="kwrd">As</span> <span class="kwrd">Byte</span>, <span class="kwrd">ByVal</span> seed <span class="kwrd">As</span> <span class="kwrd">Integer</span>) <span class="kwrd">As</span> <span class="kwrd">Byte</span>()</pre>
+
+  <pre><span class="lnum">  60:  </span>        <span class="kwrd">Dim</span> count <span class="kwrd">As</span> <span class="kwrd">Integer</span> = Math.Floor(<span class="kwrd">Decimal</span>.Parse(inData.Length) / 4D)</pre>
+
+  <pre class="alt"><span class="lnum">  61:  </span>        <span class="kwrd">Dim</span> remainder <span class="kwrd">As</span> <span class="kwrd">Integer</span> = inData.Length - (count * 4)</pre>
+
+  <pre><span class="lnum">  62:  </span>        <span class="kwrd">Dim</span> seedBytes() <span class="kwrd">As</span> <span class="kwrd">Byte</span> = BitConverter.GetBytes(seed)</pre>
+
+  <pre class="alt"><span class="lnum">  63:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  64:  </span>        Array.Reverse(seedBytes)</pre>
+
+  <pre class="alt"><span class="lnum">  65:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  66:  </span>        <span class="kwrd">For</span> i <span class="kwrd">As</span> <span class="kwrd">Integer</span> = 0 <span class="kwrd">To</span> count - 1</pre>
+
+  <pre class="alt"><span class="lnum">  67:  </span>            <span class="kwrd">For</span> b <span class="kwrd">As</span> <span class="kwrd">Integer</span> = 0 <span class="kwrd">To</span> 3</pre>
+
+  <pre><span class="lnum">  68:  </span>                inData((i * 4) + b) = inData((i * 4) + b) <span class="kwrd">Xor</span> seedBytes(b)</pre>
+
+  <pre class="alt"><span class="lnum">  69:  </span>            <span class="kwrd">Next</span></pre>
+
+  <pre><span class="lnum">  70:  </span>            <span class="kwrd">For</span> b <span class="kwrd">As</span> <span class="kwrd">Integer</span> = 0 <span class="kwrd">To</span> 3</pre>
+
+  <pre class="alt"><span class="lnum">  71:  </span>                seedBytes(b) = inData((i * 4) + b)</pre>
+
+  <pre><span class="lnum">  72:  </span>            <span class="kwrd">Next</span></pre>
+
+  <pre class="alt"><span class="lnum">  73:  </span>        <span class="kwrd">Next</span></pre>
+
+  <pre><span class="lnum">  74:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  75:  </span>        <span class="kwrd">For</span> i <span class="kwrd">As</span> <span class="kwrd">Integer</span> = 0 <span class="kwrd">To</span> remainder - 1</pre>
+
+  <pre><span class="lnum">  76:  </span>            inData((count * 4) + i) = inData((count * 4) + i) <span class="kwrd">Xor</span> seedBytes(0)</pre>
+
+  <pre class="alt"><span class="lnum">  77:  </span>        <span class="kwrd">Next</span></pre>
+
+  <pre><span class="lnum">  78:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  79:  </span>        <span class="kwrd">Return</span> inData</pre>
+
+  <pre><span class="lnum">  80:  </span>    <span class="kwrd">End</span> <span class="kwrd">Function</span></pre>
+
+  <pre class="alt"><span class="lnum">  81:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  82:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Shared</span> <span class="kwrd">Function</span> Decrypt(<span class="kwrd">ByVal</span> inData() <span class="kwrd">As</span> <span class="kwrd">Byte</span>, <span class="kwrd">ByVal</span> seed <span class="kwrd">As</span> <span class="kwrd">Integer</span>) <span class="kwrd">As</span> <span class="kwrd">Byte</span>()</pre>
+
+  <pre class="alt"><span class="lnum">  83:  </span>        <span class="kwrd">Dim</span> count <span class="kwrd">As</span> <span class="kwrd">Integer</span> = Math.Floor(<span class="kwrd">Decimal</span>.Parse(inData.Length) / 4D)</pre>
+
+  <pre><span class="lnum">  84:  </span>        <span class="kwrd">Dim</span> remainder <span class="kwrd">As</span> <span class="kwrd">Integer</span> = inData.Length - (count * 4)</pre>
+
+  <pre class="alt"><span class="lnum">  85:  </span>        <span class="kwrd">Dim</span> seedBytes() <span class="kwrd">As</span> <span class="kwrd">Byte</span> = BitConverter.GetBytes(seed)</pre>
+
+  <pre><span class="lnum">  86:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  87:  </span>        Array.Reverse(seedBytes)</pre>
+
+  <pre><span class="lnum">  88:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  89:  </span>        <span class="kwrd">For</span> i <span class="kwrd">As</span> <span class="kwrd">Integer</span> = 0 <span class="kwrd">To</span> count - 1</pre>
+
+  <pre><span class="lnum">  90:  </span>            <span class="kwrd">Dim</span> newSeed(3) <span class="kwrd">As</span> <span class="kwrd">Byte</span></pre>
+
+  <pre class="alt"><span class="lnum">  91:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  92:  </span>            <span class="kwrd">For</span> b <span class="kwrd">As</span> <span class="kwrd">Integer</span> = 0 <span class="kwrd">To</span> 3</pre>
+
+  <pre class="alt"><span class="lnum">  93:  </span>                newSeed(b) = inData((i * 4) + b)</pre>
+
+  <pre><span class="lnum">  94:  </span>            <span class="kwrd">Next</span></pre>
+
+  <pre class="alt"><span class="lnum">  95:  </span>            <span class="kwrd">For</span> b <span class="kwrd">As</span> <span class="kwrd">Integer</span> = 0 <span class="kwrd">To</span> 3</pre>
+
+  <pre><span class="lnum">  96:  </span>                inData((i * 4) + b) = inData((i * 4) + b) <span class="kwrd">Xor</span> seedBytes(b)</pre>
+
+  <pre class="alt"><span class="lnum">  97:  </span>            <span class="kwrd">Next</span></pre>
+
+  <pre><span class="lnum">  98:  </span>            <span class="kwrd">For</span> b <span class="kwrd">As</span> <span class="kwrd">Integer</span> = 0 <span class="kwrd">To</span> 3</pre>
+
+  <pre class="alt"><span class="lnum">  99:  </span>                seedBytes(b) = newSeed(b)</pre>
+
+  <pre><span class="lnum"> 100:  </span>            <span class="kwrd">Next</span></pre>
+
+  <pre class="alt"><span class="lnum"> 101:  </span>        <span class="kwrd">Next</span></pre>
+
+  <pre><span class="lnum"> 102:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 103:  </span>        <span class="kwrd">For</span> i <span class="kwrd">As</span> <span class="kwrd">Integer</span> = 0 <span class="kwrd">To</span> remainder - 1</pre>
+
+  <pre><span class="lnum"> 104:  </span>            inData((count * 4) + i) = inData((count * 4) + i) <span class="kwrd">Xor</span> seedBytes(0)</pre>
+
+  <pre class="alt"><span class="lnum"> 105:  </span>        <span class="kwrd">Next</span></pre>
+
+  <pre><span class="lnum"> 106:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 107:  </span>        <span class="kwrd">Return</span> inData</pre>
+
+  <pre><span class="lnum"> 108:  </span>    <span class="kwrd">End</span> <span class="kwrd">Function</span></pre>
+
+  <pre class="alt"><span class="lnum"> 109:  </span>&#160;</pre>
+
+  <pre><span class="lnum"> 110:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Shared</span> <span class="kwrd">Function</span> CRC32(<span class="kwrd">ByVal</span> inData() <span class="kwrd">As</span> <span class="kwrd">Byte</span>, <span class="kwrd">ByVal</span> length <span class="kwrd">As</span> <span class="kwrd">Integer</span>, <span class="kwrd">ByVal</span> nCrcSeed <span class="kwrd">As</span> <span class="kwrd">Integer</span>) <span class="kwrd">As</span> <span class="kwrd">Integer</span></pre>
+
+  <pre class="alt"><span class="lnum"> 111:  </span>        <span class="rem">'unsigned int nCrc = g_nCrcTable[(~nCrcSeed) &amp; 0xFF];</span></pre>
+
+  <pre><span class="lnum"> 112:  </span>        <span class="kwrd">Dim</span> nCrc <span class="kwrd">As</span> UInt32 = m_CRCTable(<span class="kwrd">Not</span> nCrcSeed <span class="kwrd">And</span> &amp;HFF)</pre>
+
+  <pre class="alt"><span class="lnum"> 113:  </span>&#160;</pre>
+
+  <pre><span class="lnum"> 114:  </span>        <span class="rem">'nCrc ^= 0x00FFFFFF;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 115:  </span>        nCrc = nCrc <span class="kwrd">Xor</span> &amp;HFFFFFF</pre>
+
+  <pre><span class="lnum"> 116:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 117:  </span>        <span class="rem">'unsigned int nIndex = (nCrcSeed &gt;&gt; 8) ^ nCrc;</span></pre>
+
+  <pre><span class="lnum"> 118:  </span>        <span class="kwrd">Dim</span> nIndex <span class="kwrd">As</span> UInt32 = (nCrcSeed &gt;&gt; 8) <span class="kwrd">Xor</span> nCrc</pre>
+
+  <pre class="alt"><span class="lnum"> 119:  </span>&#160;</pre>
+
+  <pre><span class="lnum"> 120:  </span>        <span class="rem">'nCrc = (nCrc &gt;&gt; 8) &amp; 0x00FFFFFF;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 121:  </span>        nCrc = (nCrc &gt;&gt; 8) <span class="kwrd">And</span> &amp;HFFFFFF</pre>
+
+  <pre><span class="lnum"> 122:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 123:  </span>        <span class="rem">'nCrc ^= g_nCrcTable[nIndex &amp; 0xFF];</span></pre>
+
+  <pre><span class="lnum"> 124:  </span>        nCrc = nCrc <span class="kwrd">Xor</span> m_CRCTable(nIndex <span class="kwrd">And</span> &amp;HFF)</pre>
+
+  <pre class="alt"><span class="lnum"> 125:  </span>&#160;</pre>
+
+  <pre><span class="lnum"> 126:  </span>        <span class="rem">'nIndex = (nCrcSeed &gt;&gt; 16) ^ nCrc;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 127:  </span>        nIndex = (nCrcSeed &gt;&gt; 16) <span class="kwrd">Xor</span> nCrc</pre>
+
+  <pre><span class="lnum"> 128:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 129:  </span>        <span class="rem">'nCrc = (nCrc &gt;&gt; 8) &amp; 0x00FFFFFF;</span></pre>
+
+  <pre><span class="lnum"> 130:  </span>        nCrc = (nCrc &gt;&gt; 8) <span class="kwrd">And</span> &amp;HFFFFFF</pre>
+
+  <pre class="alt"><span class="lnum"> 131:  </span>&#160;</pre>
+
+  <pre><span class="lnum"> 132:  </span>        <span class="rem">'nCrc ^= g_nCrcTable[nIndex &amp; 0xFF];</span></pre>
+
+  <pre class="alt"><span class="lnum"> 133:  </span>        nCrc = nCrc <span class="kwrd">Xor</span> m_CRCTable(nIndex <span class="kwrd">And</span> &amp;HFF)</pre>
+
+  <pre><span class="lnum"> 134:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 135:  </span>        <span class="rem">'nIndex = (nCrcSeed &gt;&gt; 24) ^ nCrc;</span></pre>
+
+  <pre><span class="lnum"> 136:  </span>        nIndex = (nCrcSeed &gt;&gt; 24) <span class="kwrd">Xor</span> nCrc</pre>
+
+  <pre class="alt"><span class="lnum"> 137:  </span>&#160;</pre>
+
+  <pre><span class="lnum"> 138:  </span>        <span class="rem">'nCrc = (nCrc &gt;&gt; 8) &amp;0x00FFFFFF;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 139:  </span>        nCrc = (nCrc &gt;&gt; 8) <span class="kwrd">And</span> &amp;HFFFFFF</pre>
+
+  <pre><span class="lnum"> 140:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 141:  </span>        <span class="rem">'nCrc ^= g_nCrcTable[nIndex &amp; 0xFF];</span></pre>
+
+  <pre><span class="lnum"> 142:  </span>        nCrc = nCrc <span class="kwrd">Xor</span> m_CRCTable(nIndex <span class="kwrd">And</span> &amp;HFF)</pre>
+
+  <pre class="alt"><span class="lnum"> 143:  </span>&#160;</pre>
+
+  <pre><span class="lnum"> 144:  </span>        <span class="rem">'for( short i = 0; i &lt; nLength; i++ ) {</span></pre>
+
+  <pre class="alt"><span class="lnum"> 145:  </span>        <span class="kwrd">For</span> i <span class="kwrd">As</span> <span class="kwrd">Integer</span> = 0 <span class="kwrd">To</span> length - 1</pre>
+
+  <pre><span class="lnum"> 146:  </span>            <span class="rem">'nIndex = (pData[ i]) ^ nCrc;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 147:  </span>            nIndex = inData(i) <span class="kwrd">Xor</span> nCrc</pre>
+
+  <pre><span class="lnum"> 148:  </span>            <span class="rem">'nCrc = (nCrc &gt;&gt; 8) &amp; 0x00FFFFFF;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 149:  </span>            nCrc = (nCrc &gt;&gt; 8) <span class="kwrd">And</span> &amp;HFFFFFF</pre>
+
+  <pre><span class="lnum"> 150:  </span>            <span class="rem">'nCrc ^= g_nCrcTable[nIndex &amp; 0xFF];</span></pre>
+
+  <pre class="alt"><span class="lnum"> 151:  </span>            nCrc = nCrc <span class="kwrd">Xor</span> m_CRCTable(nIndex <span class="kwrd">And</span> &amp;HFF)</pre>
+
+  <pre><span class="lnum"> 152:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 153:  </span>        <span class="kwrd">Next</span></pre>
+
+  <pre><span class="lnum"> 154:  </span>        <span class="rem">'}</span></pre>
+
+  <pre class="alt"><span class="lnum"> 155:  </span>&#160;</pre>
+
+  <pre><span class="lnum"> 156:  </span>        <span class="rem">'return ~nCrc;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 157:  </span>        <span class="kwrd">Return</span> <span class="kwrd">Not</span> nCrc</pre>
+
+  <pre><span class="lnum"> 158:  </span>    <span class="kwrd">End</span> <span class="kwrd">Function</span></pre>
+
+  <pre class="alt"><span class="lnum"> 159:  </span>&#160;</pre>
+
+  <pre><span class="lnum"> 160:  </span>    <span class="rem">'   void CRC_(unsigned char *data, int size, unsigned long &amp;crc){</span></pre>
+
+  <pre class="alt"><span class="lnum"> 161:  </span>    <span class="rem">'        if (!size) return;</span></pre>
+
+  <pre><span class="lnum"> 162:  </span>    <span class="rem">'        for (int i = 0; i &lt; size; i++)</span></pre>
+
+  <pre class="alt"><span class="lnum"> 163:  </span>    <span class="rem">'            crc = (crc &gt;&gt; 8) ^ crc_table[(crc &amp; 0xff) ^ data[ i]];</span></pre>
+
+  <pre><span class="lnum"> 164:  </span>    <span class="rem">'   }</span></pre>
+
+  <pre class="alt"><span class="lnum"> 165:  </span>&#160;</pre>
+
+  <pre><span class="lnum"> 166:  </span>    <span class="kwrd">Private</span> <span class="kwrd">Shared</span> m_CRCTable() <span class="kwrd">As</span> UInt32 = <span class="kwrd">New</span> UInt32() { _</pre>
+
+  <pre class="alt"><span class="lnum"> 167:  </span>                                                    &amp;H0UL, &amp;H77073096UL, &amp;HEE0E612CUL, &amp;H990951BAUL, &amp;H76DC419UL, &amp;H706AF48FUL, _</pre>
+
+  <pre><span class="lnum"> 168:  </span>                                                    &amp;HE963A535UL, &amp;H9E6495A3UL, &amp;HEDB8832UL, &amp;H79DCB8A4UL, &amp;HE0D5E91EUL, &amp;H97D2D988UL, _</pre>
+
+  <pre class="alt"><span class="lnum"> 169:  </span>                                                    &amp;H9B64C2BUL, &amp;H7EB17CBDUL, &amp;HE7B82D07UL, &amp;H90BF1D91UL, &amp;H1DB71064UL, &amp;H6AB020F2UL, _</pre>
+
+  <pre><span class="lnum"> 170:  </span>                                                    &amp;HF3B97148UL, &amp;H84BE41DEUL, &amp;H1ADAD47DUL, &amp;H6DDDE4EBUL, &amp;HF4D4B551UL, &amp;H83D385C7UL, _</pre>
+
+  <pre class="alt"><span class="lnum"> 171:  </span>                                                    &amp;H136C9856UL, &amp;H646BA8C0UL, &amp;HFD62F97AUL, &amp;H8A65C9ECUL, &amp;H14015C4FUL, &amp;H63066CD9UL, _</pre>
+
+  <pre><span class="lnum"> 172:  </span>                                                    &amp;HFA0F3D63UL, &amp;H8D080DF5UL, &amp;H3B6E20C8UL, &amp;H4C69105EUL, &amp;HD56041E4UL, &amp;HA2677172UL, _</pre>
+
+  <pre class="alt"><span class="lnum"> 173:  </span>                                                    &amp;H3C03E4D1UL, &amp;H4B04D447UL, &amp;HD20D85FDUL, &amp;HA50AB56BUL, &amp;H35B5A8FAUL, &amp;H42B2986CUL, _</pre>
+
+  <pre><span class="lnum"> 174:  </span>                                                    &amp;HDBBBC9D6UL, &amp;HACBCF940UL, &amp;H32D86CE3UL, &amp;H45DF5C75UL, &amp;HDCD60DCFUL, &amp;HABD13D59UL, _</pre>
+
+  <pre class="alt"><span class="lnum"> 175:  </span>                                                    &amp;H26D930ACUL, &amp;H51DE003AUL, &amp;HC8D75180UL, &amp;HBFD06116UL, &amp;H21B4F4B5UL, &amp;H56B3C423UL, _</pre>
+
+  <pre><span class="lnum"> 176:  </span>                                                    &amp;HCFBA9599UL, &amp;HB8BDA50FUL, &amp;H2802B89EUL, &amp;H5F058808UL, &amp;HC60CD9B2UL, &amp;HB10BE924UL, _</pre>
+
+  <pre class="alt"><span class="lnum"> 177:  </span>                                                    &amp;H2F6F7C87UL, &amp;H58684C11UL, &amp;HC1611DABUL, &amp;HB6662D3DUL, &amp;H76DC4190UL, &amp;H1DB7106UL, _</pre>
+
+  <pre><span class="lnum"> 178:  </span>                                                    &amp;H98D220BCUL, &amp;HEFD5102AUL, &amp;H71B18589UL, &amp;H6B6B51FUL, &amp;H9FBFE4A5UL, &amp;HE8B8D433UL, _</pre>
+
+  <pre class="alt"><span class="lnum"> 179:  </span>                                                    &amp;H7807C9A2UL, &amp;HF00F934UL, &amp;H9609A88EUL, &amp;HE10E9818UL, &amp;H7F6A0DBBUL, &amp;H86D3D2DUL, _</pre>
+
+  <pre><span class="lnum"> 180:  </span>                                                    &amp;H91646C97UL, &amp;HE6635C01UL, &amp;H6B6B51F4UL, &amp;H1C6C6162UL, &amp;H856530D8UL, &amp;HF262004EUL, _</pre>
+
+  <pre class="alt"><span class="lnum"> 181:  </span>                                                    &amp;H6C0695EDUL, &amp;H1B01A57BUL, &amp;H8208F4C1UL, &amp;HF50FC457UL, &amp;H65B0D9C6UL, &amp;H12B7E950UL, _</pre>
+
+  <pre><span class="lnum"> 182:  </span>                                                    &amp;H8BBEB8EAUL, &amp;HFCB9887CUL, &amp;H62DD1DDFUL, &amp;H15DA2D49UL, &amp;H8CD37CF3UL, &amp;HFBD44C65UL, _</pre>
+
+  <pre class="alt"><span class="lnum"> 183:  </span>                                                    &amp;H4DB26158UL, &amp;H3AB551CEUL, &amp;HA3BC0074UL, &amp;HD4BB30E2UL, &amp;H4ADFA541UL, &amp;H3DD895D7UL, _</pre>
+
+  <pre><span class="lnum"> 184:  </span>                                                    &amp;HA4D1C46DUL, &amp;HD3D6F4FBUL, &amp;H4369E96AUL, &amp;H346ED9FCUL, &amp;HAD678846UL, &amp;HDA60B8D0UL, _</pre>
+
+  <pre class="alt"><span class="lnum"> 185:  </span>                                                    &amp;H44042D73UL, &amp;H33031DE5UL, &amp;HAA0A4C5FUL, &amp;HDD0D7CC9UL, &amp;H5005713CUL, &amp;H270241AAUL, _</pre>
+
+  <pre><span class="lnum"> 186:  </span>                                                    &amp;HBE0B1010UL, &amp;HC90C2086UL, &amp;H5768B525UL, &amp;H206F85B3UL, &amp;HB966D409UL, &amp;HCE61E49FUL, _</pre>
+
+  <pre class="alt"><span class="lnum"> 187:  </span>                                                    &amp;H5EDEF90EUL, &amp;H29D9C998UL, &amp;HB0D09822UL, &amp;HC7D7A8B4UL, &amp;H59B33D17UL, &amp;H2EB40D81UL, _</pre>
+
+  <pre><span class="lnum"> 188:  </span>                                                    &amp;HB7BD5C3BUL, &amp;HC0BA6CADUL, &amp;HEDB88320UL, &amp;H9ABFB3B6UL, &amp;H3B6E20CUL, &amp;H74B1D29AUL, _</pre>
+
+  <pre class="alt"><span class="lnum"> 189:  </span>                                                    &amp;HEAD54739UL, &amp;H9DD277AFUL, &amp;H4DB2615UL, &amp;H73DC1683UL, &amp;HE3630B12UL, &amp;H94643B84UL, _</pre>
+
+  <pre><span class="lnum"> 190:  </span>                                                    &amp;HD6D6A3EUL, &amp;H7A6A5AA8UL, &amp;HE40ECF0BUL, &amp;H9309FF9DUL, &amp;HA00AE27UL, &amp;H7D079EB1UL, _</pre>
+
+  <pre class="alt"><span class="lnum"> 191:  </span>                                                    &amp;HF00F9344UL, &amp;H8708A3D2UL, &amp;H1E01F268UL, &amp;H6906C2FEUL, &amp;HF762575DUL, &amp;H806567CBUL, _</pre>
+
+  <pre><span class="lnum"> 192:  </span>                                                    &amp;H196C3671UL, &amp;H6E6B06E7UL, &amp;HFED41B76UL, &amp;H89D32BE0UL, &amp;H10DA7A5AUL, &amp;H67DD4ACCUL, _</pre>
+
+  <pre class="alt"><span class="lnum"> 193:  </span>                                                    &amp;HF9B9DF6FUL, &amp;H8EBEEFF9UL, &amp;H17B7BE43UL, &amp;H60B08ED5UL, &amp;HD6D6A3E8UL, &amp;HA1D1937EUL, _</pre>
+
+  <pre><span class="lnum"> 194:  </span>                                                    &amp;H38D8C2C4UL, &amp;H4FDFF252UL, &amp;HD1BB67F1UL, &amp;HA6BC5767UL, &amp;H3FB506DDUL, &amp;H48B2364BUL, _</pre>
+
+  <pre class="alt"><span class="lnum"> 195:  </span>                                                    &amp;HD80D2BDAUL, &amp;HAF0A1B4CUL, &amp;H36034AF6UL, &amp;H41047A60UL, &amp;HDF60EFC3UL, &amp;HA867DF55UL, _</pre>
+
+  <pre><span class="lnum"> 196:  </span>                                                    &amp;H316E8EEFUL, &amp;H4669BE79UL, &amp;HCB61B38CUL, &amp;HBC66831AUL, &amp;H256FD2A0UL, &amp;H5268E236UL, _</pre>
+
+  <pre class="alt"><span class="lnum"> 197:  </span>                                                    &amp;HCC0C7795UL, &amp;HBB0B4703UL, &amp;H220216B9UL, &amp;H5505262FUL, &amp;HC5BA3BBEUL, &amp;HB2BD0B28UL, _</pre>
+
+  <pre><span class="lnum"> 198:  </span>                                                    &amp;H2BB45A92UL, &amp;H5CB36A04UL, &amp;HC2D7FFA7UL, &amp;HB5D0CF31UL, &amp;H2CD99E8BUL, &amp;H5BDEAE1DUL, _</pre>
+
+  <pre class="alt"><span class="lnum"> 199:  </span>                                                    &amp;H9B64C2B0UL, &amp;HEC63F226UL, &amp;H756AA39CUL, &amp;H26D930AUL, &amp;H9C0906A9UL, &amp;HEB0E363FUL, _</pre>
+
+  <pre><span class="lnum"> 200:  </span>                                                    &amp;H72076785UL, &amp;H5005713UL, &amp;H95BF4A82UL, &amp;HE2B87A14UL, &amp;H7BB12BAEUL, &amp;HCB61B38UL, _</pre>
+
+  <pre class="alt"><span class="lnum"> 201:  </span>                                                    &amp;H92D28E9BUL, &amp;HE5D5BE0DUL, &amp;H7CDCEFB7UL, &amp;HBDBDF21UL, &amp;H86D3D2D4UL, &amp;HF1D4E242UL, _</pre>
+
+  <pre><span class="lnum"> 202:  </span>                                                    &amp;H68DDB3F8UL, &amp;H1FDA836EUL, &amp;H81BE16CDUL, &amp;HF6B9265BUL, &amp;H6FB077E1UL, &amp;H18B74777UL, _</pre>
+
+  <pre class="alt"><span class="lnum"> 203:  </span>                                                    &amp;H88085AE6UL, &amp;HFF0F6A70UL, &amp;H66063BCAUL, &amp;H11010B5CUL, &amp;H8F659EFFUL, &amp;HF862AE69UL, _</pre>
+
+  <pre><span class="lnum"> 204:  </span>                                                    &amp;H616BFFD3UL, &amp;H166CCF45UL, &amp;HA00AE278UL, &amp;HD70DD2EEUL, &amp;H4E048354UL, &amp;H3903B3C2UL, _</pre>
+
+  <pre class="alt"><span class="lnum"> 205:  </span>                                                    &amp;HA7672661UL, &amp;HD06016F7UL, &amp;H4969474DUL, &amp;H3E6E77DBUL, &amp;HAED16A4AUL, &amp;HD9D65ADCUL, _</pre>
+
+  <pre><span class="lnum"> 206:  </span>                                                    &amp;H40DF0B66UL, &amp;H37D83BF0UL, &amp;HA9BCAE53UL, &amp;HDEBB9EC5UL, &amp;H47B2CF7FUL, &amp;H30B5FFE9UL, _</pre>
+
+  <pre class="alt"><span class="lnum"> 207:  </span>                                                    &amp;HBDBDF21CUL, &amp;HCABAC28AUL, &amp;H53B39330UL, &amp;H24B4A3A6UL, &amp;HBAD03605UL, &amp;HCDD70693UL, _</pre>
+
+  <pre><span class="lnum"> 208:  </span>                                                    &amp;H54DE5729UL, &amp;H23D967BFUL, &amp;HB3667A2EUL, &amp;HC4614AB8UL, &amp;H5D681B02UL, &amp;H2A6F2B94UL, _</pre>
+
+  <pre class="alt"><span class="lnum"> 209:  </span>                                                    &amp;HB40BBE37UL, &amp;HC30C8EA1UL, &amp;H5A05DF1BUL, &amp;H2D02EF8DUL _</pre>
+
+  <pre><span class="lnum"> 210:  </span>                                                }</pre>
+
+  <pre class="alt"><span class="lnum"> 211:  </span>&#160;</pre>
+
+  <pre><span class="lnum"> 212:  </span><span class="kwrd">End</span> <span class="kwrd">Class</span></pre>
+</div>
+
+<p>&#160;</p>
+
+<p>There it is, in all the unfriendly nastyness.&#160; The API class I am using is calling the previous c++ implementation that I had before, just to verify that they match.</p>
+
+<p>Just thought I would gloat a bit, it was a tedious process, and a lot of learning about .Net binary actions that I wasn't aware of, sometimes you just look at the code, but don't really understand it, I finally have a really good understanding of how this all works.</p>
+
+<p><strong>*EDIT For Credit</strong> 
+
+  <br /><a href="http://www.swgemu.com/" target="_blank">SWGEmu.com</a> 
+
+  <br /><a href="http://trac2.assembla.com/swgemu/wiki/Packets/CRC" target="_blank">CRC Explained</a> 
+
+  <br /><a href="http://trac2.assembla.com/swgemu/wiki/Packets/Encryption" target="_blank">Encryption Explained</a></p><img src="http://renevo.com/aggbug.aspx?PostID=1926" width="1" height="1">

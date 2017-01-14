@@ -1,0 +1,66 @@
+<P>Well, after a few months working on this off and on, I thought I would share the current status of our operations.</P>
+<P>First and foremost, we got Cruise Control up and running, this made a huge step forward with the process, and it is open source, so that allowed me to create a custom UI for it to run.&nbsp; This resulted in us having a custom application that runs very similarly to the Cruise Control Tray Application (CCTray), except I implemented grouping by categories, displaying the categories, as well as auto-discovery of projects, rather then having to set them up.</P>
+<P>Additionally, because we don't need everyone in our department building every piece of software all the time, I created a pseudo permission system that is bound into an xml file, like the example below.</P>
+<P>&lt;?xml version="1.0" encoding="utf-8" standalone="yes" ?&gt; <BR>&lt;security&gt; <BR>&nbsp;&nbsp;&nbsp; &lt;add user="tanderson" viewConfig="true" projects="*" /&gt; <BR>&nbsp;&nbsp;&nbsp; &lt;add user="jsmith" viewConfig="false" projects="RecipeEditor_VB6;Rocket;QReports;" /&gt; <BR>&lt;/security&gt;</P>
+<P>As you can see, it is a very simplistic permissions system, the user is the currently logged in computer user, viewConfig is a small permission to see if they can view the servers ccnet.config, and the projects are a semi-colon separated list of the names of the projects they can see status of, or for ease of people like me, an asterisk for all projects.</P>
+<P>Below is a screen shot of the current version of the software.</P>
+<P><A href="http://www.renevo.com/blogs/dotnet/WindowsLiveWriter/UpdatetotheBuildAutomation_FC2A/image_2.png"><IMG style="BORDER-TOP-WIDTH:0px;BORDER-LEFT-WIDTH:0px;BORDER-BOTTOM-WIDTH:0px;BORDER-RIGHT-WIDTH:0px;" height=424 alt=image src="http://www.renevo.com/blogs/dotnet/WindowsLiveWriter/UpdatetotheBuildAutomation_FC2A/image_thumb.png" width=644 border=0></A> </P>
+<P>I have made quite a bit of headway with the system in getting more and more projects completed and into the daily build.&nbsp; The "DailyBuild" is the only project that is built nightly, and it builds everyone of the other projects.</P>
+<P>The actual process of creating all of this mayhem was a few steps.</P>
+<P><STRONG>Creating an Environment</STRONG></P>
+<P>The first thing I had to do, was get an environment going that was as clean as possible to do the builds, this is a remote connection only off the domain standalone box that only myself and the VP of software development have access to.&nbsp; The computer is loaded with Server 2003 Standard Edition, SQL 2000, SQL 2005, Visual Basic 6, VS 2003, VS 2005, and RedGate toolkit.</P>
+<P><STRONG>Starting the batches</STRONG></P>
+<P>When someone told me I would do a crap load of batch files as a quick solution to get a process done, I would have laughed at them, but in this case, it seemed to be the quickest route to the finish line. In total for what you see above, I have roughly 38 batch files.</P>
+<P>The first ones that I built, where simplistic, setup the compiling environments, and then get the latest code from source control. I created two separate batch files for this to ease the calling of them from other batch files.</P>
+<P><EM>SetupEnvironment.cmd</EM></P>
+<P>@rem Setup all variables here <BR>@SET SSCMLOGIN=user:password <BR>@SET SSCMSERVER=server:4900 <BR>@SET CBSSoftware="C:\Build\CBS Software" <BR>@SET CBSLegacy="C:\Build\CBS Legacy" <BR>@SET CBSProto="C:\Build\CBS Prototype" </P>
+<P>@SET VB6EXE="C:\Program Files\Microsoft Visual Studio\VB98\vb6.exe" <BR>@SET VBCEXE="C:\windows\microsoft.net\framework\v2.0.50727\vbc.exe" <BR>@SET VS2003="c:\program files\Microsoft Visual Studio .NET 2003\common7\ide\devenv.exe" <BR>@SET VS2005="C:\Program files\microsoft visual studio 8\common7\ide\devenv.exe" <BR>@SET VS2008="C:\Program Files\microsoft visual studio 9.0\common7\ide\devenv.exe" </P>
+<P>@rem Build utilities here <BR>@call Utilities/BuildUtilities </P>
+<P>@EXIT /B %ERRORLEVEL%</P>
+<P>I added a utilities folder to store a lot of extra files that I didn't want in the main batch folder, such as:</P>
+<UL>
+<LI>Icons </LI>
+<LI>Sign Keys </LI>
+<LI>Winrar.exe </LI>
+<LI>XCopy exclusion lists for different types of software </LI>
+<LI>Cruise Control Log Files </LI></UL>
+<P>I also added a BuildUtilities batch file that allows me to compile and use stand alone class files in .Net, such as one that I use very frequently, the List.exe.</P>
+<P><EM>Utilities/BuildUtilities.cmd</EM></P>
+<P>@rem add any utility compiles here <BR>@echo Building Utilities </P>
+<P>@rem Building List <BR>@"%VBCEXE%" /target:exe /nologo "C:\Build\Utilities\list.vb" </P>
+<P>@EXIT /B %ERRORLEVEL%</P>
+<P>List.exe is a very simple executable that basically outputs a file from disc to the console.</P>
+<P>The next batch file that I built was to pull all of the code for our products from source control.</P>
+<P><EM>GetSource.cmd</EM></P>
+<P>@rem Retrieve all source <BR>@echo Retrieving latest source code <BR>@mkdir %CBSSoftware% <BR>@mkdir %CBSLegacy% <BR>@mkdir %CBSProto% </P>
+<P>@sscm workdir ""%CBSSoftware%"" "CBS Software" -y"%SSCMLOGIN%" -z"%SSCMSERVER%" <BR>@sscm get *.* -d""%CBSSoftware%"" -p"CBS Software" -r -e -q -wreplace -y"%SSCMLOGIN%" -z"%SSCMSERVER%" </P>
+<P>@sscm workdir ""%CBSLegacy%"" "CBS Legacy" -y"%SSCMLOGIN%" -z"%SSCMSERVER%" <BR>@sscm get *.* -d""%CBSLegacy%"" -p"CBS Legacy" -r -e -q -wreplace -y"%SSCMLOGIN%" -z"%SSCMSERVER%" </P>
+<P>@sscm workdir ""%CBSProto%"" "CBS Prototype" -y"%SSCMLOGIN%" -z"%SSCMSERVER%" <BR>@sscm get *.* -d""%CBSProto%"" -p"CBS Prototype" -r -e -q -wreplace -y"%SSCMLOGIN%" -z"%SSCMSERVER%" </P>
+<P>@EXIT /B %ERRORLEVEL%</P>
+<P>We use Surround SCM from Seapine software, so your command lines may differ quite a bit.</P>
+<P><STRONG>Creating a compile project</STRONG></P>
+<P>To do anything, I needed to be able to compile the projects, this was done mostly via command line to the proper visual studio, I wanted to do the direct calls to the compilers, but there was entirely way too much legwork that would have had to be done first.</P>
+<P>Although, in order to make my giant "DailyBuild" batch file as well as a by-product batch file, I needed to separate some of the logic from the build to only do certain things, for instance, I don't want to get the source for all projects each time I build one project.&nbsp; Instead I created two files, one with the product name "Application.cmd" and another with "BuildApplication.cmd".&nbsp; The Build*.cmd sets up the environment, gets the source, then calls the application.cmd batch at the end.</P>
+<P><EM>Iconifier.cmd</EM></P>
+<P>@echo Building Iconifier <BR>@echo ------------------------------------------------------------------ <BR>@echo This build requires .Net 2.0, Visual Studio 2005 <BR>@echo ------------------------------------------------------------------ </P>
+<P>@rmdir /S /Q "./Output/Iconifier/" <BR>@mkdir "Output/Iconifier/" <BR>@rmdir /S /Q "./Output/Iconifier/Icon Templates" <BR>@mkdir "Output/Iconifier/Icon Templates/" </P>
+<P>@echo Building Iconifier </P>
+<P>@%VS2005% "./CBS Software/Desktop/Utilities/NorthStar.Desktop.Iconifier/NorthStar.Desktop.Iconifier.sln" /rebuild Release /out Output\Iconifier\build.log <BR>@"./Utilities/List" ./Output/Iconifier/Build.log <BR>@del output\Iconifier\build.log <BR>@IF NOT EXIST "./CBS Software/Desktop/Utilities/NorthStar.Desktop.Iconifier/NorthStar.Desktop.Iconifier/bin/release/northstar.Desktop.Iconifier.exe" EXIT /B 1 </P>
+<P>@rem copy over all the files <BR>@xcopy "CBS Software\Desktop\Utilities\NorthStar.Desktop.Iconifier\NorthStar.Desktop.Iconifier\bin\release\*.exe" Output\Iconifier /S /Q /Y <BR>@xcopy "CBS Software\Desktop\Utilities\NorthStar.Desktop.Iconifier\NorthStar.Desktop.Iconifier\Icon Templates\*.png" "Output\Iconifier\Icon Templates" /S /Q /Y </P>
+<P>@rem Archive <BR>@"./Utilities/winrar.exe" a -r -idcdp -sfx.\Utilities\default.sfx -ibck -ep1 -iimg.\Utilities\sfx_logo.bmp -ts -iicon".\utilities\default.ico" -z".\Utilities\SFX_default.txt" ".\Output\NorthStar.Iconifier.Daily.exe" "Output\Iconifier\*.*" <BR>@"./Utilities/winrar.exe" a -ag-MM-DD-YYYY -r -idcdp -sfx.\Utilities\default.sfx -ibck -ep1 -iimg.\Utilities\sfx_logo.bmp -ts -iicon".\utilities\default.ico" -z".\Utilities\SFX_default.txt" ".\Output\NorthStar.Iconifier.Daily.exe" "Output\Iconifier\*.*" </P>
+<P>@EXIT /B %ERRORLEVEL%</P>
+<P>Quick recap, remove existing directories (clean), create them, build the solution file, output the log to the console for logging purposes, copy all the files from the build directory to the output directory, archive using winrar (giant command lines for the win) a daily file, then archive again with a date stamped file.</P>
+<P><EM>BuildIconifier.cmd</EM></P>
+<P>@cls <BR>@rem Start Iconifier Daily Build </P>
+<P>@echo ------------------------------------------------------------------ <BR>@echo Daily&nbsp; Iconifier Script Initialized <BR>@echo Version: 1.0 <BR>@echo Author:&nbsp; Tom Anderson <BR>@echo ------------------------------------------------------------------ </P>
+<P>@call SetupEnvironment <BR>@IF NOT %ERRORLEVEL%&nbsp; == 0 EXIT /B %ERRORLEVEL% </P>
+<P>@call GetSource <BR>@IF NOT %ERRORLEVEL%&nbsp; == 0 EXIT /B %ERRORLEVEL% </P>
+<P>@echo ------------------------------------------------------------------ </P>
+<P>@call Iconifier <BR>@IF NOT %ERRORLEVEL%&nbsp; == 0 EXIT /B %ERRORLEVEL% </P>
+<P>@echo ------------------------------------------------------------------ <BR>@echo Deploying to <A href="http://servername/Downloads/NorthStar.Iconifier.Daily.exe">http://servername/Downloads/NorthStar.Iconifier.Daily.exe</A> <BR>@copy Output\NorthStar.Iconifier.Daily.exe C:\Inetpub\wwwroot\Downloads\ /Y <BR>@echo ------------------------------------------------------------------ </P>
+<P>@ECHO ERROR LEVEL: %ERRORLEVEL% </P>
+<P>@EXIT /B %ERRORLEVEL%</P>
+<P>And here is our setup and build batch file, which can be called stand alone.&nbsp; Only thing unique is that I copy the daily.exe to the web server hosted on this machine for download ability within the company.</P>
+<P>The project pasted above is actually a pretty quick and simple one, some of our projects have upwards of 12 compiles to make the final product, and quite a few supporting files.</P>
+<P><STRONG>Wrap up</STRONG></P>
+<P>It is still a work in progress, and I still have about 6 projects to get in that are the most complex, and a database to create a daily build off of, but the progress is going pretty well.</P><img src="http://renevo.com/aggbug.aspx?PostID=1698" width="1" height="1">
