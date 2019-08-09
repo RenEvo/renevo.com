@@ -1,0 +1,44 @@
+<p>In the <a href="http://www.renevo.com/blogs/dotnet/archive/2007/11/05/cab-getting-started.aspx" target="_blank">first part of the CAB articles</a>, I explained a bit about getting the CAB working in a generic shell, and simply initiating the framework, in this article I will explain a little known ability with the CAB to dynamically load all modules in a directory, instead of the &quot;ProductCatalog.xml&quot; that is used in the CAB samples.&#160; This is something that I do personally in all 3 of our CAB shells, and have found it to be much easier to deploy new modules to customers.</p>  <p>In our Startup class, we simply need to override one of the base WorkItem methods for adding services &quot;AddServices&quot;, remove teh IModuleEnumerator that is currently loaded (that productcatalog.xml loader) and replace it with a new ReflectionModuleEnumerator instead.</p>  <div class="csharpcode">   <pre class="alt"><span class="lnum">   1:  </span>    <span class="kwrd">Protected</span> <span class="kwrd">Overrides</span> <span class="kwrd">Sub</span> AddServices()</pre>
+
+  <pre><span class="lnum">   2:  </span>        <span class="rem">'setup base services</span></pre>
+
+  <pre class="alt"><span class="lnum">   3:  </span>        <span class="kwrd">MyBase</span>.AddServices()</pre>
+
+  <pre><span class="lnum">   4:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">   5:  </span>        <span class="rem">'remove the FileModule for ProductCatalog.xml</span></pre>
+
+  <pre><span class="lnum">   6:  </span>        <span class="kwrd">MyBase</span>.RootWorkItem.Services.Remove(Of IModuleEnumerator)()</pre>
+
+  <pre class="alt"><span class="lnum">   7:  </span>&#160;</pre>
+
+  <pre><span class="lnum">   8:  </span>        <span class="rem">'create a new reflection enumerator</span></pre>
+
+  <pre class="alt"><span class="lnum">   9:  </span>        <span class="kwrd">Dim</span> reflectionEnumerator <span class="kwrd">As</span> <span class="kwrd">New</span> ReflectionModuleEnumerator()</pre>
+
+  <pre><span class="lnum">  10:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  11:  </span>        <span class="rem">'make sure our path exists for modules</span></pre>
+
+  <pre><span class="lnum">  12:  </span>        Directory.CreateDirectory(Path.GetDirectoryName(Application.ExecutablePath) &amp; <span class="str">&quot;\Modules\&quot;</span>)</pre>
+
+  <pre class="alt"><span class="lnum">  13:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  14:  </span>        <span class="rem">'set the working path to ./Modules/</span></pre>
+
+  <pre class="alt"><span class="lnum">  15:  </span>        reflectionEnumerator.BasePath = Path.GetDirectoryName(Application.ExecutablePath) &amp; <span class="str">&quot;\Modules\&quot;</span></pre>
+
+  <pre><span class="lnum">  16:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  17:  </span>        <span class="rem">'add it back to the services</span></pre>
+
+  <pre><span class="lnum">  18:  </span>        <span class="kwrd">MyBase</span>.RootWorkItem.Services.Add(<span class="kwrd">GetType</span>(IModuleEnumerator), reflectionEnumerator)</pre>
+
+  <pre class="alt"><span class="lnum">  19:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  20:  </span>    <span class="kwrd">End</span> Sub</pre>
+</div>
+
+<p>In the next article, I will go over how to add a Splash Screen to the main form, since we have not enabled the &quot;Application Framework&quot;.</p>
+
+<p><a href="http://www.renevo.com/files/folders/articles_vbnet/entry1985.aspx" target="_blank">Download Solution</a></p><img src="http://renevo.com/aggbug.aspx?PostID=1986" width="1" height="1">

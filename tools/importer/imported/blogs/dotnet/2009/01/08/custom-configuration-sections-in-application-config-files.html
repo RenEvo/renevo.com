@@ -1,0 +1,1379 @@
+<p>A colleague of mine approached me the other day on how to build custom configuration section handlers in .Net.&#160; As I have said <a href="http://www.renevo.com/blogs/dotnet/archive/2008/01/31/loading-config-files-from-non-default-locations.aspx" target="_blank">in previous articles, I have been using “real” .config files now instead of pseudo .config, .cfg, or .xml files for complex application settings</a>, and this has proven very portable for the configurations.</p>  <p>When creating custom configuration sections, there are essentially three steps.</p>  <ol>   <li>Provide a way to load the configuration section </li>    <li>Define properties for the section </li>    <li>Read/Write to the base object’s collection </li> </ol>  <p>A bit of knowledge here.&#160; ConfigurationSection and ConfigurationElement are essentially property bags, you will be directing all of your properties in your classes to read and write to the Item collection where your property name is the key, and the value is, you guessed it, the value.</p>  <p>So lets start off easy, lets create the configuration section first and lets make it something simple, like a configuration section for our application windows.</p>  <div class="csharpcode">   <pre class="alt"><span class="lnum">   1:  </span><span class="kwrd">Imports</span> System.Configuration</pre>
+
+  <pre><span class="lnum">   2:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">   3:  </span><span class="kwrd">Public</span> <span class="kwrd">Class</span> WindowSettings</pre>
+
+  <pre><span class="lnum">   4:  </span>    <span class="kwrd">Inherits</span> ConfigurationSection</pre>
+
+  <pre class="alt"><span class="lnum">   5:  </span>&#160;</pre>
+
+  <pre><span class="lnum">   6:  </span><span class="kwrd">End</span> Class</pre>
+</div>
+
+<p></p>
+
+<p>Basic class, yes, now we want to define some primary properties for the section, lets add “applicationKey” so this is re-usable.</p>
+
+<p>Above I mentioned that we are simply creating wrappers for the internal property bag, we also need to add an attribute to the property specifying the name of the attribute in the actual config file.</p>
+
+<div class="csharpcode">
+  <pre class="alt"><span class="lnum">   1:  </span>    &lt;ConfigurationProperty(<span class="str">&quot;applicationKey&quot;</span>)&gt; _</pre>
+
+  <pre><span class="lnum">   2:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Property</span> ApplicationKey() <span class="kwrd">As</span> <span class="kwrd">String</span></pre>
+
+  <pre class="alt"><span class="lnum">   3:  </span>        <span class="kwrd">Get</span></pre>
+
+  <pre><span class="lnum">   4:  </span>            <span class="kwrd">Return</span> <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;applicationKey&quot;</span>)</pre>
+
+  <pre class="alt"><span class="lnum">   5:  </span>        <span class="kwrd">End</span> <span class="kwrd">Get</span></pre>
+
+  <pre><span class="lnum">   6:  </span>        <span class="kwrd">Set</span>(<span class="kwrd">ByVal</span> value <span class="kwrd">As</span> <span class="kwrd">String</span>)</pre>
+
+  <pre class="alt"><span class="lnum">   7:  </span>            <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;applicationKey&quot;</span>) = value</pre>
+
+  <pre><span class="lnum">   8:  </span>        <span class="kwrd">End</span> <span class="kwrd">Set</span></pre>
+
+  <pre class="alt"><span class="lnum">   9:  </span>    <span class="kwrd">End</span> Property</pre>
+</div>
+
+<p></p>
+
+<p>Pretty simply so far?</p>
+
+<p>Now is an optional step that I like to use for testing, it really helps me work with these sections, below are some helper methods (both static and instanced) that I build for any custom section handlers, a base class is also recommended if you are going to be doing a lot of these.</p>
+
+<div class="csharpcode">
+  <pre class="alt"><span class="lnum">   1:  </span><span class="preproc">#Region</span> <span class="str">&quot; Base Implementation For Load/Save &quot;</span></pre>
+
+  <pre><span class="lnum">   2:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">   3:  </span>    <span class="rem">'only initialized internally</span></pre>
+
+  <pre><span class="lnum">   4:  </span>    <span class="kwrd">Protected</span> <span class="kwrd">Sub</span> <span class="kwrd">New</span>()</pre>
+
+  <pre class="alt"><span class="lnum">   5:  </span>&#160;</pre>
+
+  <pre><span class="lnum">   6:  </span>    <span class="kwrd">End</span> <span class="kwrd">Sub</span></pre>
+
+  <pre class="alt"><span class="lnum">   7:  </span>&#160;</pre>
+
+  <pre><span class="lnum">   8:  </span>    <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">   9:  </span>    <span class="rem">''' Internal placeholder for configuration file</span></pre>
+
+  <pre><span class="lnum">  10:  </span>    <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  11:  </span>    <span class="rem">''' &lt;remarks&gt;&lt;/remarks&gt;</span></pre>
+
+  <pre><span class="lnum">  12:  </span>    <span class="kwrd">Protected</span> m_BaseConfiguration <span class="kwrd">As</span> Configuration = <span class="kwrd">Nothing</span></pre>
+
+  <pre class="alt"><span class="lnum">  13:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  14:  </span>    <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  15:  </span>    <span class="rem">''' Gets the custom configuration by path specifying a custom section name</span></pre>
+
+  <pre><span class="lnum">  16:  </span>    <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  17:  </span>    <span class="rem">''' &lt;param name=&quot;path&quot;&gt;Path to the configuration file&lt;/param&gt;</span></pre>
+
+  <pre><span class="lnum">  18:  </span>    <span class="rem">''' &lt;param name=&quot;section&quot;&gt;Section in configuration file to load&lt;/param&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  19:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Shared</span> <span class="kwrd">Function</span> LoadConfigSection(<span class="kwrd">ByVal</span> path <span class="kwrd">As</span> <span class="kwrd">String</span>, _</pre>
+
+  <pre><span class="lnum">  20:  </span>                                             <span class="kwrd">ByVal</span> section <span class="kwrd">As</span> <span class="kwrd">String</span>) <span class="kwrd">As</span> WindowSettings</pre>
+
+  <pre class="alt"><span class="lnum">  21:  </span>        <span class="kwrd">Dim</span> retVal <span class="kwrd">As</span> <span class="kwrd">New</span> WindowSettings(), config <span class="kwrd">As</span> Configuration = <span class="kwrd">Nothing</span></pre>
+
+  <pre><span class="lnum">  22:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  23:  </span>        <span class="kwrd">Dim</span> configFileMap <span class="kwrd">As</span> <span class="kwrd">New</span> ExeConfigurationFileMap()</pre>
+
+  <pre><span class="lnum">  24:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  25:  </span>        configFileMap.ExeConfigFilename = path</pre>
+
+  <pre><span class="lnum">  26:  </span>        config = ConfigurationManager.OpenMappedExeConfiguration( _</pre>
+
+  <pre class="alt"><span class="lnum">  27:  </span>                                                            configFileMap, _</pre>
+
+  <pre><span class="lnum">  28:  </span>                                                            ConfigurationUserLevel.None)</pre>
+
+  <pre class="alt"><span class="lnum">  29:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  30:  </span>        <span class="kwrd">If</span> config.Sections(section) <span class="kwrd">Is</span> <span class="kwrd">Nothing</span> <span class="kwrd">Then</span></pre>
+
+  <pre class="alt"><span class="lnum">  31:  </span>            config.Sections.Add(section, <span class="kwrd">New</span> WindowSettings)</pre>
+
+  <pre><span class="lnum">  32:  </span>        <span class="kwrd">End</span> <span class="kwrd">If</span></pre>
+
+  <pre class="alt"><span class="lnum">  33:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  34:  </span>        retVal = <span class="kwrd">TryCast</span>(config.GetSection(section), WindowSettings)</pre>
+
+  <pre class="alt"><span class="lnum">  35:  </span>        retVal.m_BaseConfiguration = config</pre>
+
+  <pre><span class="lnum">  36:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  37:  </span>        <span class="kwrd">Return</span> retVal</pre>
+
+  <pre><span class="lnum">  38:  </span>    <span class="kwrd">End</span> <span class="kwrd">Function</span></pre>
+
+  <pre class="alt"><span class="lnum">  39:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  40:  </span>    <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  41:  </span>    <span class="rem">''' Gets the custom configuration by path</span></pre>
+
+  <pre><span class="lnum">  42:  </span>    <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  43:  </span>    <span class="rem">''' &lt;param name=&quot;path&quot;&gt;&lt;/param&gt;</span></pre>
+
+  <pre><span class="lnum">  44:  </span>    <span class="rem">''' &lt;returns&gt;&lt;/returns&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  45:  </span>    <span class="rem">''' &lt;remarks&gt;&lt;/remarks&gt;</span></pre>
+
+  <pre><span class="lnum">  46:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Shared</span> <span class="kwrd">Function</span> LoadConfigSection(<span class="kwrd">ByVal</span> path <span class="kwrd">As</span> <span class="kwrd">String</span>) <span class="kwrd">As</span> WindowSettings</pre>
+
+  <pre class="alt"><span class="lnum">  47:  </span>        <span class="kwrd">Return</span> LoadConfigSection(path, <span class="str">&quot;WindowSettings&quot;</span>)</pre>
+
+  <pre><span class="lnum">  48:  </span>    <span class="kwrd">End</span> <span class="kwrd">Function</span></pre>
+
+  <pre class="alt"><span class="lnum">  49:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  50:  </span>    <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  51:  </span>    <span class="rem">''' Gets the custom configuration</span></pre>
+
+  <pre><span class="lnum">  52:  </span>    <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  53:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Shared</span> <span class="kwrd">Function</span> LoadConfigSection() <span class="kwrd">As</span> WindowSettings</pre>
+
+  <pre><span class="lnum">  54:  </span>        <span class="kwrd">Return</span> LoadConfigSection(Application.ExecutablePath &amp; <span class="str">&quot;.config&quot;</span>)</pre>
+
+  <pre class="alt"><span class="lnum">  55:  </span>    <span class="kwrd">End</span> <span class="kwrd">Function</span></pre>
+
+  <pre><span class="lnum">  56:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  57:  </span>    <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre><span class="lnum">  58:  </span>    <span class="rem">''' Saves the current configuration</span></pre>
+
+  <pre class="alt"><span class="lnum">  59:  </span>    <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre><span class="lnum">  60:  </span>    <span class="rem">''' &lt;remarks&gt;&lt;/remarks&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  61:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Sub</span> Save()</pre>
+
+  <pre><span class="lnum">  62:  </span>        m_BaseConfiguration.Save(ConfigurationSaveMode.Minimal)</pre>
+
+  <pre class="alt"><span class="lnum">  63:  </span>    <span class="kwrd">End</span> <span class="kwrd">Sub</span></pre>
+
+  <pre><span class="lnum">  64:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  65:  </span><span class="preproc">#End Region</span></pre>
+</div>
+
+<p>This is the big bread and butter code that makes these easy to work with. First it makes the class construtor protected which prevents the class from accidentally being created, adds three overloaded methods for loading the config section, and then provides a save routine.</p>
+
+<p>I am sure somewhere down the road I will be creating a generic implementation of this class so you can simply inherit from ConfigurationSection(of T).</p>
+
+<p>So currently we have implemented all three steps required to create a basic configuration section in a standard .config file.</p>
+
+<p>To load, set, and save simply do the following line of code.</p>
+
+<div class="csharpcode">
+  <pre class="alt"><span class="lnum">   1:  </span>        <span class="kwrd">Dim</span> config <span class="kwrd">As</span> WindowSettings= WindowSettings.LoadConfigSection()</pre>
+
+  <pre><span class="lnum">   2:  </span>        config.ApplicationKey = Application.ProductName</pre>
+
+  <pre class="alt"><span class="lnum">   3:  </span>        config.Save()</pre>
+</div>
+
+<p>To retrieve the value, simply use the following one liner.</p>
+
+<div class="csharpcode">
+  <pre class="alt"><span class="lnum">   1:  </span>        MessageBox.Show(WindowSettings.LoadConfigSection().ApplicationKey)</pre>
+</div>
+
+<p></p>
+
+<p></p>
+
+<p></p>
+
+<p>Well, all that is fine and dandy, but what if we need to do some collections in our settings, like saving each forms top, left, width, and height values?</p>
+
+<p>Then we will create a ConfigurationElement and ConfigurationElementCollection.&#160; First with the ConfigurationElement, it is almost identical to the ConfigurationSection as far as wrapping the property bags.&#160; Although since we are setting form settings, lets add some default values to these properties so our forms are 0,0 location and 0,0 sizes.</p>
+
+<div class="csharpcode">
+  <pre class="alt"><span class="lnum">   1:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Class</span> WindowSetting</pre>
+
+  <pre><span class="lnum">   2:  </span>        <span class="kwrd">Inherits</span> ConfigurationElement</pre>
+
+  <pre class="alt"><span class="lnum">   3:  </span>&#160;</pre>
+
+  <pre><span class="lnum">   4:  </span>        &lt;ConfigurationProperty(<span class="str">&quot;id&quot;</span>)&gt; _</pre>
+
+  <pre class="alt"><span class="lnum">   5:  </span>        <span class="kwrd">Public</span> <span class="kwrd">Property</span> ID() <span class="kwrd">As</span> <span class="kwrd">String</span></pre>
+
+  <pre><span class="lnum">   6:  </span>            <span class="kwrd">Get</span></pre>
+
+  <pre class="alt"><span class="lnum">   7:  </span>                <span class="kwrd">Return</span> <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;id&quot;</span>)</pre>
+
+  <pre><span class="lnum">   8:  </span>            <span class="kwrd">End</span> <span class="kwrd">Get</span></pre>
+
+  <pre class="alt"><span class="lnum">   9:  </span>            <span class="kwrd">Set</span>(<span class="kwrd">ByVal</span> value <span class="kwrd">As</span> <span class="kwrd">String</span>)</pre>
+
+  <pre><span class="lnum">  10:  </span>                <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;id&quot;</span>) = value</pre>
+
+  <pre class="alt"><span class="lnum">  11:  </span>            <span class="kwrd">End</span> <span class="kwrd">Set</span></pre>
+
+  <pre><span class="lnum">  12:  </span>        <span class="kwrd">End</span> <span class="kwrd">Property</span></pre>
+
+  <pre class="alt"><span class="lnum">  13:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  14:  </span>        &lt;ConfigurationProperty(<span class="str">&quot;top&quot;</span>, DefaultValue:=100)&gt; _</pre>
+
+  <pre class="alt"><span class="lnum">  15:  </span>        <span class="kwrd">Public</span> <span class="kwrd">Property</span> Top() <span class="kwrd">As</span> <span class="kwrd">Integer</span></pre>
+
+  <pre><span class="lnum">  16:  </span>            <span class="kwrd">Get</span></pre>
+
+  <pre class="alt"><span class="lnum">  17:  </span>                <span class="kwrd">Return</span> <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;top&quot;</span>)</pre>
+
+  <pre><span class="lnum">  18:  </span>            <span class="kwrd">End</span> <span class="kwrd">Get</span></pre>
+
+  <pre class="alt"><span class="lnum">  19:  </span>            <span class="kwrd">Set</span>(<span class="kwrd">ByVal</span> value <span class="kwrd">As</span> <span class="kwrd">Integer</span>)</pre>
+
+  <pre><span class="lnum">  20:  </span>                <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;top&quot;</span>) = value</pre>
+
+  <pre class="alt"><span class="lnum">  21:  </span>            <span class="kwrd">End</span> <span class="kwrd">Set</span></pre>
+
+  <pre><span class="lnum">  22:  </span>        <span class="kwrd">End</span> <span class="kwrd">Property</span></pre>
+
+  <pre class="alt"><span class="lnum">  23:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  24:  </span>        &lt;ConfigurationProperty(<span class="str">&quot;left&quot;</span>, DefaultValue:=100)&gt; _</pre>
+
+  <pre class="alt"><span class="lnum">  25:  </span>        <span class="kwrd">Public</span> <span class="kwrd">Property</span> Left() <span class="kwrd">As</span> <span class="kwrd">Integer</span></pre>
+
+  <pre><span class="lnum">  26:  </span>            <span class="kwrd">Get</span></pre>
+
+  <pre class="alt"><span class="lnum">  27:  </span>                <span class="kwrd">Return</span> <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;left&quot;</span>)</pre>
+
+  <pre><span class="lnum">  28:  </span>            <span class="kwrd">End</span> <span class="kwrd">Get</span></pre>
+
+  <pre class="alt"><span class="lnum">  29:  </span>            <span class="kwrd">Set</span>(<span class="kwrd">ByVal</span> value <span class="kwrd">As</span> <span class="kwrd">Integer</span>)</pre>
+
+  <pre><span class="lnum">  30:  </span>                <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;left&quot;</span>) = value</pre>
+
+  <pre class="alt"><span class="lnum">  31:  </span>            <span class="kwrd">End</span> <span class="kwrd">Set</span></pre>
+
+  <pre><span class="lnum">  32:  </span>        <span class="kwrd">End</span> <span class="kwrd">Property</span></pre>
+
+  <pre class="alt"><span class="lnum">  33:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  34:  </span>        &lt;ConfigurationProperty(<span class="str">&quot;height&quot;</span>, DefaultValue:=600)&gt; _</pre>
+
+  <pre class="alt"><span class="lnum">  35:  </span>        <span class="kwrd">Public</span> <span class="kwrd">Property</span> Height() <span class="kwrd">As</span> <span class="kwrd">Integer</span></pre>
+
+  <pre><span class="lnum">  36:  </span>            <span class="kwrd">Get</span></pre>
+
+  <pre class="alt"><span class="lnum">  37:  </span>                <span class="kwrd">Return</span> <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;height&quot;</span>)</pre>
+
+  <pre><span class="lnum">  38:  </span>            <span class="kwrd">End</span> <span class="kwrd">Get</span></pre>
+
+  <pre class="alt"><span class="lnum">  39:  </span>            <span class="kwrd">Set</span>(<span class="kwrd">ByVal</span> value <span class="kwrd">As</span> <span class="kwrd">Integer</span>)</pre>
+
+  <pre><span class="lnum">  40:  </span>                <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;height&quot;</span>) = value</pre>
+
+  <pre class="alt"><span class="lnum">  41:  </span>            <span class="kwrd">End</span> <span class="kwrd">Set</span></pre>
+
+  <pre><span class="lnum">  42:  </span>        <span class="kwrd">End</span> <span class="kwrd">Property</span></pre>
+
+  <pre class="alt"><span class="lnum">  43:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  44:  </span>        &lt;ConfigurationProperty(<span class="str">&quot;width&quot;</span>, DefaultValue:=800)&gt; _</pre>
+
+  <pre class="alt"><span class="lnum">  45:  </span>        <span class="kwrd">Public</span> <span class="kwrd">Property</span> Width() <span class="kwrd">As</span> <span class="kwrd">Integer</span></pre>
+
+  <pre><span class="lnum">  46:  </span>            <span class="kwrd">Get</span></pre>
+
+  <pre class="alt"><span class="lnum">  47:  </span>                <span class="kwrd">Return</span> <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;width&quot;</span>)</pre>
+
+  <pre><span class="lnum">  48:  </span>            <span class="kwrd">End</span> <span class="kwrd">Get</span></pre>
+
+  <pre class="alt"><span class="lnum">  49:  </span>            <span class="kwrd">Set</span>(<span class="kwrd">ByVal</span> value <span class="kwrd">As</span> <span class="kwrd">Integer</span>)</pre>
+
+  <pre><span class="lnum">  50:  </span>                <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;width&quot;</span>) = value</pre>
+
+  <pre class="alt"><span class="lnum">  51:  </span>            <span class="kwrd">End</span> <span class="kwrd">Set</span></pre>
+
+  <pre><span class="lnum">  52:  </span>        <span class="kwrd">End</span> <span class="kwrd">Property</span></pre>
+
+  <pre class="alt"><span class="lnum">  53:  </span>    <span class="kwrd">End</span> Class</pre>
+</div>
+
+<p>&#160;</p>
+
+<p>This class is about as straight forward as they come, define properties, route to property bag, define attribute name, set default value.&#160; We also added an ID property which will act as our key for our collection.</p>
+
+<p>Which brings us to our Collection. ConfigurationElementCollections have two must overrides, CreateNewElement() and GetElementKey()&#160; both of these methods are pretty easy to implement, and below is the most basic ConfigurationElementCollection implementation you can get by with. You must also specify an attribute to the class in order to name the element in the config file.</p>
+
+<div class="csharpcode">
+  <pre class="alt"><span class="lnum">   1:  </span>    &lt;ConfigurationCollection(<span class="kwrd">GetType</span>(WindowSetting), AddItemName:=<span class="str">&quot;windows&quot;</span>)&gt; _</pre>
+
+  <pre><span class="lnum">   2:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Class</span> WindowSettingCollection</pre>
+
+  <pre class="alt"><span class="lnum">   3:  </span>        <span class="kwrd">Inherits</span> ConfigurationElementCollection</pre>
+
+  <pre><span class="lnum">   4:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">   5:  </span>        <span class="kwrd">Protected</span> <span class="kwrd">Overloads</span> <span class="kwrd">Overrides</span> <span class="kwrd">Function</span> CreateNewElement() _</pre>
+
+  <pre><span class="lnum">   6:  </span>                                <span class="kwrd">As</span> System.Configuration.ConfigurationElement</pre>
+
+  <pre class="alt"><span class="lnum">   7:  </span>            <span class="kwrd">Return</span> <span class="kwrd">New</span> WindowSetting</pre>
+
+  <pre><span class="lnum">   8:  </span>        <span class="kwrd">End</span> <span class="kwrd">Function</span></pre>
+
+  <pre class="alt"><span class="lnum">   9:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  10:  </span>        <span class="kwrd">Protected</span> <span class="kwrd">Overrides</span> <span class="kwrd">Function</span> GetElementKey( _</pre>
+
+  <pre class="alt"><span class="lnum">  11:  </span>                                <span class="kwrd">ByVal</span> element <span class="kwrd">As</span> System.Configuration.ConfigurationElement) _</pre>
+
+  <pre><span class="lnum">  12:  </span>                                <span class="kwrd">As</span> <span class="kwrd">Object</span></pre>
+
+  <pre class="alt"><span class="lnum">  13:  </span>            <span class="kwrd">Return</span> <span class="kwrd">DirectCast</span>(element, WindowSetting).ID</pre>
+
+  <pre><span class="lnum">  14:  </span>        <span class="kwrd">End</span> <span class="kwrd">Function</span></pre>
+
+  <pre class="alt"><span class="lnum">  15:  </span>    <span class="kwrd">End</span> Class</pre>
+</div>
+
+<p>That is it, but how much fun would it be if I just showed you that bit of code, and said deal with figuring out the rest on your own?&#160; Personally, I like to add <strong>lots</strong> of helper methods to this class, again, this is another huge candidate for a generic.</p>
+
+<div class="csharpcode">
+  <pre class="alt"><span class="lnum">   1:  </span>&lt;ConfigurationCollection(<span class="kwrd">GetType</span>(WindowSetting), AddItemName:=<span class="str">&quot;windows&quot;</span>)&gt; _</pre>
+
+  <pre><span class="lnum">   2:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Class</span> WindowSettingCollection</pre>
+
+  <pre class="alt"><span class="lnum">   3:  </span>        <span class="kwrd">Inherits</span> ConfigurationElementCollection</pre>
+
+  <pre><span class="lnum">   4:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">   5:  </span>        <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre><span class="lnum">   6:  </span>        <span class="rem">''' Creates a new element with default properties</span></pre>
+
+  <pre class="alt"><span class="lnum">   7:  </span>        <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre><span class="lnum">   8:  </span>        <span class="kwrd">Protected</span> <span class="kwrd">Overloads</span> <span class="kwrd">Overrides</span> <span class="kwrd">Function</span> CreateNewElement() _</pre>
+
+  <pre class="alt"><span class="lnum">   9:  </span>                                        <span class="kwrd">As</span> System.Configuration.ConfigurationElement</pre>
+
+  <pre><span class="lnum">  10:  </span>            <span class="kwrd">Return</span> <span class="kwrd">New</span> WindowSetting()</pre>
+
+  <pre class="alt"><span class="lnum">  11:  </span>        <span class="kwrd">End</span> <span class="kwrd">Function</span></pre>
+
+  <pre><span class="lnum">  12:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  13:  </span>        <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre><span class="lnum">  14:  </span>        <span class="rem">''' Creates a new element with the id specified</span></pre>
+
+  <pre class="alt"><span class="lnum">  15:  </span>        <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre><span class="lnum">  16:  </span>        <span class="rem">''' &lt;param name=&quot;id&quot;&gt;id of the new element&lt;/param&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  17:  </span>        <span class="kwrd">Protected</span> <span class="kwrd">Overloads</span> <span class="kwrd">Function</span> CreateNewElement(<span class="kwrd">ByVal</span> id <span class="kwrd">As</span> <span class="kwrd">String</span>) _</pre>
+
+  <pre><span class="lnum">  18:  </span>                                        <span class="kwrd">As</span> System.Configuration.ConfigurationElement</pre>
+
+  <pre class="alt"><span class="lnum">  19:  </span>            <span class="kwrd">Return</span> <span class="kwrd">New</span> WindowSetting() <span class="kwrd">With</span> {.ID = id}</pre>
+
+  <pre><span class="lnum">  20:  </span>        <span class="kwrd">End</span> <span class="kwrd">Function</span></pre>
+
+  <pre class="alt"><span class="lnum">  21:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  22:  </span>        <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  23:  </span>        <span class="rem">''' Gets an element's key</span></pre>
+
+  <pre><span class="lnum">  24:  </span>        <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  25:  </span>        <span class="rem">''' &lt;param name=&quot;element&quot;&gt;element to test&lt;/param&gt;</span></pre>
+
+  <pre><span class="lnum">  26:  </span>        <span class="kwrd">Protected</span> <span class="kwrd">Overrides</span> <span class="kwrd">Function</span> GetElementKey( _</pre>
+
+  <pre class="alt"><span class="lnum">  27:  </span>                                        <span class="kwrd">ByVal</span> element <span class="kwrd">As</span> System.Configuration.ConfigurationElement) _</pre>
+
+  <pre><span class="lnum">  28:  </span>                                        <span class="kwrd">As</span> <span class="kwrd">Object</span></pre>
+
+  <pre class="alt"><span class="lnum">  29:  </span>            <span class="kwrd">Return</span> <span class="kwrd">DirectCast</span>(element, WindowSetting).ID</pre>
+
+  <pre><span class="lnum">  30:  </span>        <span class="kwrd">End</span> <span class="kwrd">Function</span></pre>
+
+  <pre class="alt"><span class="lnum">  31:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  32:  </span>        <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  33:  </span>        <span class="rem">''' Adds a new element to the collection</span></pre>
+
+  <pre><span class="lnum">  34:  </span>        <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  35:  </span>        <span class="rem">''' &lt;param name=&quot;element&quot;&gt;&lt;/param&gt;</span></pre>
+
+  <pre><span class="lnum">  36:  </span>        <span class="rem">''' &lt;remarks&gt;&lt;/remarks&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  37:  </span>        <span class="kwrd">Public</span> <span class="kwrd">Sub</span> Add(<span class="kwrd">ByVal</span> element <span class="kwrd">As</span> WindowSetting)</pre>
+
+  <pre><span class="lnum">  38:  </span>            <span class="kwrd">MyBase</span>.BaseAdd(element)</pre>
+
+  <pre class="alt"><span class="lnum">  39:  </span>        <span class="kwrd">End</span> <span class="kwrd">Sub</span></pre>
+
+  <pre><span class="lnum">  40:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  41:  </span>        <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre><span class="lnum">  42:  </span>        <span class="rem">''' Adds a new element to the collection by id</span></pre>
+
+  <pre class="alt"><span class="lnum">  43:  </span>        <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre><span class="lnum">  44:  </span>        <span class="rem">''' &lt;param name=&quot;id&quot;&gt;id of the new element&lt;/param&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  45:  </span>        <span class="kwrd">Public</span> <span class="kwrd">Function</span> AddNew(<span class="kwrd">ByVal</span> id <span class="kwrd">As</span> <span class="kwrd">String</span>) <span class="kwrd">As</span> WindowSetting</pre>
+
+  <pre><span class="lnum">  46:  </span>            <span class="kwrd">Dim</span> newElement <span class="kwrd">As</span> WindowSetting = <span class="kwrd">Me</span>.CreateNewElement(id)</pre>
+
+  <pre class="alt"><span class="lnum">  47:  </span>            Add(newElement)</pre>
+
+  <pre><span class="lnum">  48:  </span>            <span class="kwrd">Return</span> newElement</pre>
+
+  <pre class="alt"><span class="lnum">  49:  </span>        <span class="kwrd">End</span> <span class="kwrd">Function</span></pre>
+
+  <pre><span class="lnum">  50:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  51:  </span>        <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre><span class="lnum">  52:  </span>        <span class="rem">''' Adds a new element to the collection by form</span></pre>
+
+  <pre class="alt"><span class="lnum">  53:  </span>        <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre><span class="lnum">  54:  </span>        <span class="rem">''' &lt;param name=&quot;form&quot;&gt;form for the new element&lt;/param&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  55:  </span>        <span class="kwrd">Public</span> <span class="kwrd">Function</span> AddNew(<span class="kwrd">ByVal</span> form <span class="kwrd">As</span> System.Windows.Forms.Form) <span class="kwrd">As</span> WindowSetting</pre>
+
+  <pre><span class="lnum">  56:  </span>            <span class="kwrd">Dim</span> newElement <span class="kwrd">As</span> WindowSetting = <span class="kwrd">Me</span>.CreateNewElement(form.Name)</pre>
+
+  <pre class="alt"><span class="lnum">  57:  </span>            newElement.Top = form.Top</pre>
+
+  <pre><span class="lnum">  58:  </span>            newElement.Left = form.Left</pre>
+
+  <pre class="alt"><span class="lnum">  59:  </span>            newElement.Height = form.Height</pre>
+
+  <pre><span class="lnum">  60:  </span>            newElement.Width = form.Width</pre>
+
+  <pre class="alt"><span class="lnum">  61:  </span>            Add(newElement)</pre>
+
+  <pre><span class="lnum">  62:  </span>            <span class="kwrd">Return</span> newElement</pre>
+
+  <pre class="alt"><span class="lnum">  63:  </span>        <span class="kwrd">End</span> <span class="kwrd">Function</span></pre>
+
+  <pre><span class="lnum">  64:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  65:  </span>        <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre><span class="lnum">  66:  </span>        <span class="rem">''' Removes an element by id</span></pre>
+
+  <pre class="alt"><span class="lnum">  67:  </span>        <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre><span class="lnum">  68:  </span>        <span class="rem">''' &lt;param name=&quot;id&quot;&gt;id of the element to remove&lt;/param&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  69:  </span>        <span class="kwrd">Public</span> <span class="kwrd">Sub</span> Remove(<span class="kwrd">ByVal</span> id <span class="kwrd">As</span> <span class="kwrd">String</span>)</pre>
+
+  <pre><span class="lnum">  70:  </span>            <span class="kwrd">MyBase</span>.BaseRemove(id)</pre>
+
+  <pre class="alt"><span class="lnum">  71:  </span>        <span class="kwrd">End</span> <span class="kwrd">Sub</span></pre>
+
+  <pre><span class="lnum">  72:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  73:  </span>        <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre><span class="lnum">  74:  </span>        <span class="rem">''' Clears all elements from the collection</span></pre>
+
+  <pre class="alt"><span class="lnum">  75:  </span>        <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre><span class="lnum">  76:  </span>        <span class="kwrd">Public</span> <span class="kwrd">Sub</span> Clear()</pre>
+
+  <pre class="alt"><span class="lnum">  77:  </span>            <span class="kwrd">MyBase</span>.BaseClear()</pre>
+
+  <pre><span class="lnum">  78:  </span>        <span class="kwrd">End</span> <span class="kwrd">Sub</span></pre>
+
+  <pre class="alt"><span class="lnum">  79:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  80:  </span>        <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  81:  </span>        <span class="rem">''' Retrieves an item from the collection by index</span></pre>
+
+  <pre><span class="lnum">  82:  </span>        <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  83:  </span>        <span class="rem">''' &lt;param name=&quot;index&quot;&gt;index of the element&lt;/param&gt;</span></pre>
+
+  <pre><span class="lnum">  84:  </span>        <span class="kwrd">Default</span> <span class="kwrd">Public</span> <span class="kwrd">Overloads</span> <span class="kwrd">ReadOnly</span> <span class="kwrd">Property</span> Item(<span class="kwrd">ByVal</span> index <span class="kwrd">As</span> <span class="kwrd">Integer</span>) <span class="kwrd">As</span> WindowSetting</pre>
+
+  <pre class="alt"><span class="lnum">  85:  </span>            <span class="kwrd">Get</span></pre>
+
+  <pre><span class="lnum">  86:  </span>                <span class="kwrd">Return</span> <span class="kwrd">MyBase</span>.BaseGet(index)</pre>
+
+  <pre class="alt"><span class="lnum">  87:  </span>            <span class="kwrd">End</span> <span class="kwrd">Get</span></pre>
+
+  <pre><span class="lnum">  88:  </span>        <span class="kwrd">End</span> <span class="kwrd">Property</span></pre>
+
+  <pre class="alt"><span class="lnum">  89:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  90:  </span>        <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  91:  </span>        <span class="rem">''' Retrieves an item from the collection by id</span></pre>
+
+  <pre><span class="lnum">  92:  </span>        <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  93:  </span>        <span class="rem">''' &lt;param name=&quot;id&quot;&gt;id of the element&lt;/param&gt;</span></pre>
+
+  <pre><span class="lnum">  94:  </span>        <span class="kwrd">Default</span> <span class="kwrd">Public</span> <span class="kwrd">Overloads</span> <span class="kwrd">ReadOnly</span> <span class="kwrd">Property</span> Item(<span class="kwrd">ByVal</span> id <span class="kwrd">As</span> <span class="kwrd">String</span>) <span class="kwrd">As</span> WindowSetting</pre>
+
+  <pre class="alt"><span class="lnum">  95:  </span>            <span class="kwrd">Get</span></pre>
+
+  <pre><span class="lnum">  96:  </span>                <span class="rem">'auto-add if not exists</span></pre>
+
+  <pre class="alt"><span class="lnum">  97:  </span>                <span class="kwrd">If</span> <span class="kwrd">MyBase</span>.BaseGet(id) <span class="kwrd">Is</span> <span class="kwrd">Nothing</span> <span class="kwrd">Then</span></pre>
+
+  <pre><span class="lnum">  98:  </span>                    <span class="kwrd">Me</span>.AddNew(id)</pre>
+
+  <pre class="alt"><span class="lnum">  99:  </span>                <span class="kwrd">End</span> <span class="kwrd">If</span></pre>
+
+  <pre><span class="lnum"> 100:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 101:  </span>                <span class="kwrd">Return</span> <span class="kwrd">Me</span>.BaseGet(id)</pre>
+
+  <pre><span class="lnum"> 102:  </span>            <span class="kwrd">End</span> <span class="kwrd">Get</span></pre>
+
+  <pre class="alt"><span class="lnum"> 103:  </span>        <span class="kwrd">End</span> <span class="kwrd">Property</span></pre>
+
+  <pre><span class="lnum"> 104:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 105:  </span>    <span class="kwrd">End</span> Class</pre>
+</div>
+
+<p>All of those additional methods will give you all the tools you need to create a CRUD interface to the collection. I also added in an AddNew that simply takes a form object.</p>
+
+<p>Finally to add the collection to the section, simply add a property for it.</p>
+
+<div class="csharpcode">
+  <pre class="alt"><span class="lnum">   1:  </span>    &lt;ConfigurationProperty(<span class="str">&quot;windows&quot;</span>)&gt; _</pre>
+
+  <pre><span class="lnum">   2:  </span>    <span class="kwrd">Public</span> <span class="kwrd">ReadOnly</span> <span class="kwrd">Property</span> Windows() <span class="kwrd">As</span> WindowSettingCollection</pre>
+
+  <pre class="alt"><span class="lnum">   3:  </span>        <span class="kwrd">Get</span></pre>
+
+  <pre><span class="lnum">   4:  </span>            <span class="kwrd">Return</span> <span class="kwrd">Me</span>.Item(<span class="str">&quot;windows&quot;</span>)</pre>
+
+  <pre class="alt"><span class="lnum">   5:  </span>        <span class="kwrd">End</span> <span class="kwrd">Get</span></pre>
+
+  <pre><span class="lnum">   6:  </span>    <span class="kwrd">End</span> Property</pre>
+</div>
+
+<p>I also added IDisposable support to the WindowSettings class for ease of use as well as two helper methods for loading and saving form settings.</p>
+
+<div class="csharpcode">
+  <pre class="alt"><span class="lnum">   1:  </span>    <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre><span class="lnum">   2:  </span>    <span class="rem">''' Helper method to load form settings</span></pre>
+
+  <pre class="alt"><span class="lnum">   3:  </span>    <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre><span class="lnum">   4:  </span>    <span class="rem">''' &lt;param name=&quot;form&quot;&gt;form to load&lt;/param&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">   5:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Sub</span> LoadFormSettings(<span class="kwrd">ByVal</span> form <span class="kwrd">As</span> System.Windows.Forms.Form)</pre>
+
+  <pre><span class="lnum">   6:  </span>        <span class="kwrd">With</span> form</pre>
+
+  <pre class="alt"><span class="lnum">   7:  </span>            .Top = <span class="kwrd">Me</span>.Windows(form.Name).Top</pre>
+
+  <pre><span class="lnum">   8:  </span>            .Left = <span class="kwrd">Me</span>.Windows(form.Name).Left</pre>
+
+  <pre class="alt"><span class="lnum">   9:  </span>            .Height = <span class="kwrd">Me</span>.Windows(form.Name).Height</pre>
+
+  <pre><span class="lnum">  10:  </span>            .Width = <span class="kwrd">Me</span>.Windows(form.Name).Width</pre>
+
+  <pre class="alt"><span class="lnum">  11:  </span>        <span class="kwrd">End</span> <span class="kwrd">With</span></pre>
+
+  <pre><span class="lnum">  12:  </span>    <span class="kwrd">End</span> <span class="kwrd">Sub</span></pre>
+
+  <pre class="alt"><span class="lnum">  13:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  14:  </span>    <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  15:  </span>    <span class="rem">''' Helper method to save form settings</span></pre>
+
+  <pre><span class="lnum">  16:  </span>    <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  17:  </span>    <span class="rem">''' &lt;param name=&quot;form&quot;&gt;&lt;/param&gt;</span></pre>
+
+  <pre><span class="lnum">  18:  </span>    <span class="rem">''' &lt;param name=&quot;saveConfig&quot;&gt;Optional parameter, when true will save the configuration file&lt;/param&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  19:  </span>    <span class="rem">''' &lt;remarks&gt;&lt;/remarks&gt;</span></pre>
+
+  <pre><span class="lnum">  20:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Sub</span> SaveFormSettings(<span class="kwrd">ByVal</span> form <span class="kwrd">As</span> System.Windows.Forms.Form, <span class="kwrd">Optional</span> <span class="kwrd">ByVal</span> saveConfig <span class="kwrd">As</span> <span class="kwrd">Boolean</span> = <span class="kwrd">False</span>)</pre>
+
+  <pre class="alt"><span class="lnum">  21:  </span>        <span class="kwrd">With</span> form</pre>
+
+  <pre><span class="lnum">  22:  </span>            <span class="kwrd">Me</span>.Windows(form.Name).Top = .Top</pre>
+
+  <pre class="alt"><span class="lnum">  23:  </span>            <span class="kwrd">Me</span>.Windows(form.Name).Left = .Left</pre>
+
+  <pre><span class="lnum">  24:  </span>            <span class="kwrd">Me</span>.Windows(form.Name).Height = .Height</pre>
+
+  <pre class="alt"><span class="lnum">  25:  </span>            <span class="kwrd">Me</span>.Windows(form.Name).Width = .Width</pre>
+
+  <pre><span class="lnum">  26:  </span>        <span class="kwrd">End</span> <span class="kwrd">With</span></pre>
+
+  <pre class="alt"><span class="lnum">  27:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  28:  </span>        <span class="kwrd">If</span> saveConfig <span class="kwrd">Then</span></pre>
+
+  <pre class="alt"><span class="lnum">  29:  </span>            <span class="kwrd">Me</span>.Save()</pre>
+
+  <pre><span class="lnum">  30:  </span>        <span class="kwrd">End</span> <span class="kwrd">If</span></pre>
+
+  <pre class="alt"><span class="lnum">  31:  </span>    <span class="kwrd">End</span> Sub</pre>
+</div>
+
+<p>Now to use it!&#160; In our forms Load event handler, add the following code:</p>
+
+<div class="csharpcode">
+  <pre class="alt"><span class="lnum">   1:  </span>        Using config <span class="kwrd">As</span> WindowSettings = WindowSettings.LoadConfigSection()</pre>
+
+  <pre><span class="lnum">   2:  </span>            config.ApplicationKey = Application.ProductName</pre>
+
+  <pre class="alt"><span class="lnum">   3:  </span>            config.LoadFormSettings(<span class="kwrd">Me</span>)</pre>
+
+  <pre><span class="lnum">   4:  </span>        <span class="kwrd">End</span> Using</pre>
+</div>
+
+<p>In our forms closing event handler, add the following code:</p>
+
+<div class="csharpcode">
+  <pre class="alt"><span class="lnum">   1:  </span>        Using config <span class="kwrd">As</span> WindowSettings = WindowSettings.LoadConfigSection()</pre>
+
+  <pre><span class="lnum">   2:  </span>            config.ApplicationKey = Application.ProductName</pre>
+
+  <pre class="alt"><span class="lnum">   3:  </span>            config.SaveFormSettings(<span class="kwrd">Me</span>, <span class="kwrd">True</span>)</pre>
+
+  <pre><span class="lnum">   4:  </span>        <span class="kwrd">End</span> Using</pre>
+</div>
+
+<p>&#160;</p>
+
+<p>And for the curious, here is the resulting app.config.</p>
+
+<div class="csharpcode">
+  <pre class="alt"><span class="lnum">   1:  </span><span class="kwrd">&lt;</span><span class="html">configuration</span><span class="kwrd">&gt;</span></pre>
+
+  <pre><span class="lnum">   2:  </span>    <span class="kwrd">&lt;</span><span class="html">configSections</span><span class="kwrd">&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">   3:  </span>        <span class="kwrd">&lt;</span><span class="html">section</span> <span class="attr">name</span><span class="kwrd">=&quot;WindowSettings&quot;</span> <span class="attr">type</span><span class="kwrd">=&quot;SandBoxVB.WindowSettings, SandBoxVB, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null&quot;</span> <span class="kwrd">/&gt;</span></pre>
+
+  <pre><span class="lnum">   4:  </span>    <span class="kwrd">&lt;/</span><span class="html">configSections</span><span class="kwrd">&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">   5:  </span>    <span class="kwrd">&lt;</span><span class="html">WindowSettings</span> <span class="attr">applicationKey</span><span class="kwrd">=&quot;SandBoxVB&quot;</span><span class="kwrd">&gt;</span></pre>
+
+  <pre><span class="lnum">   6:  </span>        <span class="kwrd">&lt;</span><span class="html">windows</span><span class="kwrd">&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">   7:  </span>            <span class="kwrd">&lt;</span><span class="html">windows</span> <span class="attr">id</span><span class="kwrd">=&quot;Form1&quot;</span> <span class="attr">top</span><span class="kwrd">=&quot;215&quot;</span> <span class="attr">left</span><span class="kwrd">=&quot;313&quot;</span> <span class="attr">height</span><span class="kwrd">=&quot;334&quot;</span> <span class="attr">width</span><span class="kwrd">=&quot;479&quot;</span> <span class="kwrd">/&gt;</span></pre>
+
+  <pre><span class="lnum">   8:  </span>        <span class="kwrd">&lt;/</span><span class="html">windows</span><span class="kwrd">&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">   9:  </span>    <span class="kwrd">&lt;/</span><span class="html">WindowSettings</span><span class="kwrd">&gt;</span></pre>
+
+  <pre><span class="lnum">  10:  </span><span class="kwrd">&lt;/</span><span class="html">configuration</span><span class="kwrd">&gt;</span></pre>
+</div>
+
+<p>&#160;</p>
+
+<p>Below is the full code for the WindowSettings Section Handler.</p>
+
+<div class="csharpcode">
+  <pre class="alt"><span class="lnum">   1:  </span><span class="kwrd">Imports</span> System.Configuration</pre>
+
+  <pre><span class="lnum">   2:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">   3:  </span><span class="kwrd">Public</span> <span class="kwrd">Class</span> WindowSettings</pre>
+
+  <pre><span class="lnum">   4:  </span>    <span class="kwrd">Inherits</span> ConfigurationSection</pre>
+
+  <pre class="alt"><span class="lnum">   5:  </span>    <span class="kwrd">Implements</span> IDisposable</pre>
+
+  <pre><span class="lnum">   6:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">   7:  </span><span class="preproc">#Region</span> <span class="str">&quot; Base Implementation For Load/Save &quot;</span></pre>
+
+  <pre><span class="lnum">   8:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">   9:  </span>    <span class="rem">'only initialized internally</span></pre>
+
+  <pre><span class="lnum">  10:  </span>    <span class="kwrd">Protected</span> <span class="kwrd">Sub</span> <span class="kwrd">New</span>()</pre>
+
+  <pre class="alt"><span class="lnum">  11:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  12:  </span>    <span class="kwrd">End</span> <span class="kwrd">Sub</span></pre>
+
+  <pre class="alt"><span class="lnum">  13:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  14:  </span>    <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  15:  </span>    <span class="rem">''' Internal placeholder for configuration file</span></pre>
+
+  <pre><span class="lnum">  16:  </span>    <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  17:  </span>    <span class="rem">''' &lt;remarks&gt;&lt;/remarks&gt;</span></pre>
+
+  <pre><span class="lnum">  18:  </span>    <span class="kwrd">Protected</span> m_BaseConfiguration <span class="kwrd">As</span> Configuration = <span class="kwrd">Nothing</span></pre>
+
+  <pre class="alt"><span class="lnum">  19:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  20:  </span>    <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  21:  </span>    <span class="rem">''' Gets the custom configuration by path specifying a custom section name</span></pre>
+
+  <pre><span class="lnum">  22:  </span>    <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  23:  </span>    <span class="rem">''' &lt;param name=&quot;path&quot;&gt;Path to the configuration file&lt;/param&gt;</span></pre>
+
+  <pre><span class="lnum">  24:  </span>    <span class="rem">''' &lt;param name=&quot;section&quot;&gt;Section in configuration file to load&lt;/param&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  25:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Shared</span> <span class="kwrd">Function</span> LoadConfigSection(<span class="kwrd">ByVal</span> path <span class="kwrd">As</span> <span class="kwrd">String</span>, _</pre>
+
+  <pre><span class="lnum">  26:  </span>                                             <span class="kwrd">ByVal</span> section <span class="kwrd">As</span> <span class="kwrd">String</span>) <span class="kwrd">As</span> WindowSettings</pre>
+
+  <pre class="alt"><span class="lnum">  27:  </span>        <span class="kwrd">Dim</span> retVal <span class="kwrd">As</span> <span class="kwrd">New</span> WindowSettings(), config <span class="kwrd">As</span> Configuration = <span class="kwrd">Nothing</span></pre>
+
+  <pre><span class="lnum">  28:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  29:  </span>        <span class="kwrd">Dim</span> configFileMap <span class="kwrd">As</span> <span class="kwrd">New</span> ExeConfigurationFileMap()</pre>
+
+  <pre><span class="lnum">  30:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  31:  </span>        configFileMap.ExeConfigFilename = path</pre>
+
+  <pre><span class="lnum">  32:  </span>        config = ConfigurationManager.OpenMappedExeConfiguration( _</pre>
+
+  <pre class="alt"><span class="lnum">  33:  </span>                                                            configFileMap, _</pre>
+
+  <pre><span class="lnum">  34:  </span>                                                            ConfigurationUserLevel.None)</pre>
+
+  <pre class="alt"><span class="lnum">  35:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  36:  </span>        <span class="kwrd">If</span> config.Sections(section) <span class="kwrd">Is</span> <span class="kwrd">Nothing</span> <span class="kwrd">Then</span></pre>
+
+  <pre class="alt"><span class="lnum">  37:  </span>            config.Sections.Add(section, <span class="kwrd">New</span> WindowSettings)</pre>
+
+  <pre><span class="lnum">  38:  </span>        <span class="kwrd">End</span> <span class="kwrd">If</span></pre>
+
+  <pre class="alt"><span class="lnum">  39:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  40:  </span>        retVal = <span class="kwrd">TryCast</span>(config.GetSection(section), WindowSettings)</pre>
+
+  <pre class="alt"><span class="lnum">  41:  </span>        retVal.m_BaseConfiguration = config</pre>
+
+  <pre><span class="lnum">  42:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  43:  </span>        <span class="kwrd">Return</span> retVal</pre>
+
+  <pre><span class="lnum">  44:  </span>    <span class="kwrd">End</span> <span class="kwrd">Function</span></pre>
+
+  <pre class="alt"><span class="lnum">  45:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  46:  </span>    <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  47:  </span>    <span class="rem">''' Gets the custom configuration by path</span></pre>
+
+  <pre><span class="lnum">  48:  </span>    <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  49:  </span>    <span class="rem">''' &lt;param name=&quot;path&quot;&gt;&lt;/param&gt;</span></pre>
+
+  <pre><span class="lnum">  50:  </span>    <span class="rem">''' &lt;returns&gt;&lt;/returns&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  51:  </span>    <span class="rem">''' &lt;remarks&gt;&lt;/remarks&gt;</span></pre>
+
+  <pre><span class="lnum">  52:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Shared</span> <span class="kwrd">Function</span> LoadConfigSection(<span class="kwrd">ByVal</span> path <span class="kwrd">As</span> <span class="kwrd">String</span>) <span class="kwrd">As</span> WindowSettings</pre>
+
+  <pre class="alt"><span class="lnum">  53:  </span>        <span class="kwrd">Return</span> LoadConfigSection(path, <span class="str">&quot;WindowSettings&quot;</span>)</pre>
+
+  <pre><span class="lnum">  54:  </span>    <span class="kwrd">End</span> <span class="kwrd">Function</span></pre>
+
+  <pre class="alt"><span class="lnum">  55:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  56:  </span>    <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  57:  </span>    <span class="rem">''' Gets the custom configuration</span></pre>
+
+  <pre><span class="lnum">  58:  </span>    <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  59:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Shared</span> <span class="kwrd">Function</span> LoadConfigSection() <span class="kwrd">As</span> WindowSettings</pre>
+
+  <pre><span class="lnum">  60:  </span>        <span class="kwrd">Return</span> LoadConfigSection(Application.ExecutablePath &amp; <span class="str">&quot;.config&quot;</span>)</pre>
+
+  <pre class="alt"><span class="lnum">  61:  </span>    <span class="kwrd">End</span> <span class="kwrd">Function</span></pre>
+
+  <pre><span class="lnum">  62:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  63:  </span>    <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre><span class="lnum">  64:  </span>    <span class="rem">''' Saves the current configuration</span></pre>
+
+  <pre class="alt"><span class="lnum">  65:  </span>    <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre><span class="lnum">  66:  </span>    <span class="rem">''' &lt;remarks&gt;&lt;/remarks&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  67:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Sub</span> Save()</pre>
+
+  <pre><span class="lnum">  68:  </span>        m_BaseConfiguration.Save(ConfigurationSaveMode.Minimal)</pre>
+
+  <pre class="alt"><span class="lnum">  69:  </span>    <span class="kwrd">End</span> <span class="kwrd">Sub</span></pre>
+
+  <pre><span class="lnum">  70:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  71:  </span><span class="preproc">#End Region</span></pre>
+
+  <pre><span class="lnum">  72:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  73:  </span>    <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre><span class="lnum">  74:  </span>    <span class="rem">''' Application key for the project, </span></pre>
+
+  <pre class="alt"><span class="lnum">  75:  </span>    <span class="rem">''' Useful when loading multiples from the save file.</span></pre>
+
+  <pre><span class="lnum">  76:  </span>    <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">  77:  </span>    &lt;ConfigurationProperty(<span class="str">&quot;applicationKey&quot;</span>)&gt; _</pre>
+
+  <pre><span class="lnum">  78:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Property</span> ApplicationKey() <span class="kwrd">As</span> <span class="kwrd">String</span></pre>
+
+  <pre class="alt"><span class="lnum">  79:  </span>        <span class="kwrd">Get</span></pre>
+
+  <pre><span class="lnum">  80:  </span>            <span class="kwrd">Return</span> <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;applicationKey&quot;</span>)</pre>
+
+  <pre class="alt"><span class="lnum">  81:  </span>        <span class="kwrd">End</span> <span class="kwrd">Get</span></pre>
+
+  <pre><span class="lnum">  82:  </span>        <span class="kwrd">Set</span>(<span class="kwrd">ByVal</span> value <span class="kwrd">As</span> <span class="kwrd">String</span>)</pre>
+
+  <pre class="alt"><span class="lnum">  83:  </span>            <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;applicationKey&quot;</span>) = value</pre>
+
+  <pre><span class="lnum">  84:  </span>        <span class="kwrd">End</span> <span class="kwrd">Set</span></pre>
+
+  <pre class="alt"><span class="lnum">  85:  </span>    <span class="kwrd">End</span> <span class="kwrd">Property</span></pre>
+
+  <pre><span class="lnum">  86:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  87:  </span>    <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre><span class="lnum">  88:  </span>    <span class="rem">''' Retrieves a collection of windows in the application</span></pre>
+
+  <pre class="alt"><span class="lnum">  89:  </span>    <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre><span class="lnum">  90:  </span>    &lt;ConfigurationProperty(<span class="str">&quot;windows&quot;</span>)&gt; _</pre>
+
+  <pre class="alt"><span class="lnum">  91:  </span>    <span class="kwrd">Public</span> <span class="kwrd">ReadOnly</span> <span class="kwrd">Property</span> Windows() <span class="kwrd">As</span> WindowSettingCollection</pre>
+
+  <pre><span class="lnum">  92:  </span>        <span class="kwrd">Get</span></pre>
+
+  <pre class="alt"><span class="lnum">  93:  </span>            <span class="kwrd">Return</span> <span class="kwrd">Me</span>.Item(<span class="str">&quot;windows&quot;</span>)</pre>
+
+  <pre><span class="lnum">  94:  </span>        <span class="kwrd">End</span> <span class="kwrd">Get</span></pre>
+
+  <pre class="alt"><span class="lnum">  95:  </span>    <span class="kwrd">End</span> <span class="kwrd">Property</span></pre>
+
+  <pre><span class="lnum">  96:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  97:  </span>    <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre><span class="lnum">  98:  </span>    <span class="rem">''' Helper method to load form settings</span></pre>
+
+  <pre class="alt"><span class="lnum">  99:  </span>    <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre><span class="lnum"> 100:  </span>    <span class="rem">''' &lt;param name=&quot;form&quot;&gt;form to load&lt;/param&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 101:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Sub</span> LoadFormSettings(<span class="kwrd">ByVal</span> form <span class="kwrd">As</span> System.Windows.Forms.Form)</pre>
+
+  <pre><span class="lnum"> 102:  </span>        <span class="kwrd">With</span> form</pre>
+
+  <pre class="alt"><span class="lnum"> 103:  </span>            .Top = <span class="kwrd">Me</span>.Windows(form.Name).Top</pre>
+
+  <pre><span class="lnum"> 104:  </span>            .Left = <span class="kwrd">Me</span>.Windows(form.Name).Left</pre>
+
+  <pre class="alt"><span class="lnum"> 105:  </span>            .Height = <span class="kwrd">Me</span>.Windows(form.Name).Height</pre>
+
+  <pre><span class="lnum"> 106:  </span>            .Width = <span class="kwrd">Me</span>.Windows(form.Name).Width</pre>
+
+  <pre class="alt"><span class="lnum"> 107:  </span>        <span class="kwrd">End</span> <span class="kwrd">With</span></pre>
+
+  <pre><span class="lnum"> 108:  </span>    <span class="kwrd">End</span> <span class="kwrd">Sub</span></pre>
+
+  <pre class="alt"><span class="lnum"> 109:  </span>&#160;</pre>
+
+  <pre><span class="lnum"> 110:  </span>    <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 111:  </span>    <span class="rem">''' Helper method to save form settings</span></pre>
+
+  <pre><span class="lnum"> 112:  </span>    <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 113:  </span>    <span class="rem">''' &lt;param name=&quot;form&quot;&gt;&lt;/param&gt;</span></pre>
+
+  <pre><span class="lnum"> 114:  </span>    <span class="rem">''' &lt;param name=&quot;saveConfig&quot;&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 115:  </span>    <span class="rem">''' Optional parameter, when true will save the configuration file</span></pre>
+
+  <pre><span class="lnum"> 116:  </span>    <span class="rem">''' &lt;/param&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 117:  </span>    <span class="rem">''' &lt;remarks&gt;&lt;/remarks&gt;</span></pre>
+
+  <pre><span class="lnum"> 118:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Sub</span> SaveFormSettings(<span class="kwrd">ByVal</span> form <span class="kwrd">As</span> System.Windows.Forms.Form, _</pre>
+
+  <pre class="alt"><span class="lnum"> 119:  </span>                                    <span class="kwrd">Optional</span> <span class="kwrd">ByVal</span> saveConfig <span class="kwrd">As</span> <span class="kwrd">Boolean</span> = <span class="kwrd">False</span>)</pre>
+
+  <pre><span class="lnum"> 120:  </span>        <span class="kwrd">With</span> form</pre>
+
+  <pre class="alt"><span class="lnum"> 121:  </span>            <span class="kwrd">Me</span>.Windows(form.Name).Top = .Top</pre>
+
+  <pre><span class="lnum"> 122:  </span>            <span class="kwrd">Me</span>.Windows(form.Name).Left = .Left</pre>
+
+  <pre class="alt"><span class="lnum"> 123:  </span>            <span class="kwrd">Me</span>.Windows(form.Name).Height = .Height</pre>
+
+  <pre><span class="lnum"> 124:  </span>            <span class="kwrd">Me</span>.Windows(form.Name).Width = .Width</pre>
+
+  <pre class="alt"><span class="lnum"> 125:  </span>        <span class="kwrd">End</span> <span class="kwrd">With</span></pre>
+
+  <pre><span class="lnum"> 126:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 127:  </span>        <span class="kwrd">If</span> saveConfig <span class="kwrd">Then</span></pre>
+
+  <pre><span class="lnum"> 128:  </span>            <span class="kwrd">Me</span>.Save()</pre>
+
+  <pre class="alt"><span class="lnum"> 129:  </span>        <span class="kwrd">End</span> <span class="kwrd">If</span></pre>
+
+  <pre><span class="lnum"> 130:  </span>    <span class="kwrd">End</span> <span class="kwrd">Sub</span></pre>
+
+  <pre class="alt"><span class="lnum"> 131:  </span>&#160;</pre>
+
+  <pre><span class="lnum"> 132:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Class</span> WindowSetting</pre>
+
+  <pre class="alt"><span class="lnum"> 133:  </span>        <span class="kwrd">Inherits</span> ConfigurationElement</pre>
+
+  <pre><span class="lnum"> 134:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 135:  </span>        &lt;ConfigurationProperty(<span class="str">&quot;id&quot;</span>)&gt; _</pre>
+
+  <pre><span class="lnum"> 136:  </span>        <span class="kwrd">Public</span> <span class="kwrd">Property</span> ID() <span class="kwrd">As</span> <span class="kwrd">String</span></pre>
+
+  <pre class="alt"><span class="lnum"> 137:  </span>            <span class="kwrd">Get</span></pre>
+
+  <pre><span class="lnum"> 138:  </span>                <span class="kwrd">Return</span> <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;id&quot;</span>)</pre>
+
+  <pre class="alt"><span class="lnum"> 139:  </span>            <span class="kwrd">End</span> <span class="kwrd">Get</span></pre>
+
+  <pre><span class="lnum"> 140:  </span>            <span class="kwrd">Set</span>(<span class="kwrd">ByVal</span> value <span class="kwrd">As</span> <span class="kwrd">String</span>)</pre>
+
+  <pre class="alt"><span class="lnum"> 141:  </span>                <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;id&quot;</span>) = value</pre>
+
+  <pre><span class="lnum"> 142:  </span>            <span class="kwrd">End</span> <span class="kwrd">Set</span></pre>
+
+  <pre class="alt"><span class="lnum"> 143:  </span>        <span class="kwrd">End</span> <span class="kwrd">Property</span></pre>
+
+  <pre><span class="lnum"> 144:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 145:  </span>        &lt;ConfigurationProperty(<span class="str">&quot;top&quot;</span>, DefaultValue:=100)&gt; _</pre>
+
+  <pre><span class="lnum"> 146:  </span>        <span class="kwrd">Public</span> <span class="kwrd">Property</span> Top() <span class="kwrd">As</span> <span class="kwrd">Integer</span></pre>
+
+  <pre class="alt"><span class="lnum"> 147:  </span>            <span class="kwrd">Get</span></pre>
+
+  <pre><span class="lnum"> 148:  </span>                <span class="kwrd">Return</span> <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;top&quot;</span>)</pre>
+
+  <pre class="alt"><span class="lnum"> 149:  </span>            <span class="kwrd">End</span> <span class="kwrd">Get</span></pre>
+
+  <pre><span class="lnum"> 150:  </span>            <span class="kwrd">Set</span>(<span class="kwrd">ByVal</span> value <span class="kwrd">As</span> <span class="kwrd">Integer</span>)</pre>
+
+  <pre class="alt"><span class="lnum"> 151:  </span>                <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;top&quot;</span>) = value</pre>
+
+  <pre><span class="lnum"> 152:  </span>            <span class="kwrd">End</span> <span class="kwrd">Set</span></pre>
+
+  <pre class="alt"><span class="lnum"> 153:  </span>        <span class="kwrd">End</span> <span class="kwrd">Property</span></pre>
+
+  <pre><span class="lnum"> 154:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 155:  </span>        &lt;ConfigurationProperty(<span class="str">&quot;left&quot;</span>, DefaultValue:=100)&gt; _</pre>
+
+  <pre><span class="lnum"> 156:  </span>        <span class="kwrd">Public</span> <span class="kwrd">Property</span> Left() <span class="kwrd">As</span> <span class="kwrd">Integer</span></pre>
+
+  <pre class="alt"><span class="lnum"> 157:  </span>            <span class="kwrd">Get</span></pre>
+
+  <pre><span class="lnum"> 158:  </span>                <span class="kwrd">Return</span> <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;left&quot;</span>)</pre>
+
+  <pre class="alt"><span class="lnum"> 159:  </span>            <span class="kwrd">End</span> <span class="kwrd">Get</span></pre>
+
+  <pre><span class="lnum"> 160:  </span>            <span class="kwrd">Set</span>(<span class="kwrd">ByVal</span> value <span class="kwrd">As</span> <span class="kwrd">Integer</span>)</pre>
+
+  <pre class="alt"><span class="lnum"> 161:  </span>                <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;left&quot;</span>) = value</pre>
+
+  <pre><span class="lnum"> 162:  </span>            <span class="kwrd">End</span> <span class="kwrd">Set</span></pre>
+
+  <pre class="alt"><span class="lnum"> 163:  </span>        <span class="kwrd">End</span> <span class="kwrd">Property</span></pre>
+
+  <pre><span class="lnum"> 164:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 165:  </span>        &lt;ConfigurationProperty(<span class="str">&quot;height&quot;</span>, DefaultValue:=600)&gt; _</pre>
+
+  <pre><span class="lnum"> 166:  </span>        <span class="kwrd">Public</span> <span class="kwrd">Property</span> Height() <span class="kwrd">As</span> <span class="kwrd">Integer</span></pre>
+
+  <pre class="alt"><span class="lnum"> 167:  </span>            <span class="kwrd">Get</span></pre>
+
+  <pre><span class="lnum"> 168:  </span>                <span class="kwrd">Return</span> <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;height&quot;</span>)</pre>
+
+  <pre class="alt"><span class="lnum"> 169:  </span>            <span class="kwrd">End</span> <span class="kwrd">Get</span></pre>
+
+  <pre><span class="lnum"> 170:  </span>            <span class="kwrd">Set</span>(<span class="kwrd">ByVal</span> value <span class="kwrd">As</span> <span class="kwrd">Integer</span>)</pre>
+
+  <pre class="alt"><span class="lnum"> 171:  </span>                <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;height&quot;</span>) = value</pre>
+
+  <pre><span class="lnum"> 172:  </span>            <span class="kwrd">End</span> <span class="kwrd">Set</span></pre>
+
+  <pre class="alt"><span class="lnum"> 173:  </span>        <span class="kwrd">End</span> <span class="kwrd">Property</span></pre>
+
+  <pre><span class="lnum"> 174:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 175:  </span>        &lt;ConfigurationProperty(<span class="str">&quot;width&quot;</span>, DefaultValue:=800)&gt; _</pre>
+
+  <pre><span class="lnum"> 176:  </span>        <span class="kwrd">Public</span> <span class="kwrd">Property</span> Width() <span class="kwrd">As</span> <span class="kwrd">Integer</span></pre>
+
+  <pre class="alt"><span class="lnum"> 177:  </span>            <span class="kwrd">Get</span></pre>
+
+  <pre><span class="lnum"> 178:  </span>                <span class="kwrd">Return</span> <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;width&quot;</span>)</pre>
+
+  <pre class="alt"><span class="lnum"> 179:  </span>            <span class="kwrd">End</span> <span class="kwrd">Get</span></pre>
+
+  <pre><span class="lnum"> 180:  </span>            <span class="kwrd">Set</span>(<span class="kwrd">ByVal</span> value <span class="kwrd">As</span> <span class="kwrd">Integer</span>)</pre>
+
+  <pre class="alt"><span class="lnum"> 181:  </span>                <span class="kwrd">MyBase</span>.Item(<span class="str">&quot;width&quot;</span>) = value</pre>
+
+  <pre><span class="lnum"> 182:  </span>            <span class="kwrd">End</span> <span class="kwrd">Set</span></pre>
+
+  <pre class="alt"><span class="lnum"> 183:  </span>        <span class="kwrd">End</span> <span class="kwrd">Property</span></pre>
+
+  <pre><span class="lnum"> 184:  </span>    <span class="kwrd">End</span> <span class="kwrd">Class</span></pre>
+
+  <pre class="alt"><span class="lnum"> 185:  </span>&#160;</pre>
+
+  <pre><span class="lnum"> 186:  </span>    &lt;ConfigurationCollection(<span class="kwrd">GetType</span>(WindowSetting), AddItemName:=<span class="str">&quot;windows&quot;</span>)&gt; _</pre>
+
+  <pre class="alt"><span class="lnum"> 187:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Class</span> WindowSettingCollection</pre>
+
+  <pre><span class="lnum"> 188:  </span>        <span class="kwrd">Inherits</span> ConfigurationElementCollection</pre>
+
+  <pre class="alt"><span class="lnum"> 189:  </span>&#160;</pre>
+
+  <pre><span class="lnum"> 190:  </span>        <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 191:  </span>        <span class="rem">''' Creates a new element with default properties</span></pre>
+
+  <pre><span class="lnum"> 192:  </span>        <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 193:  </span>        <span class="kwrd">Protected</span> <span class="kwrd">Overloads</span> <span class="kwrd">Overrides</span> <span class="kwrd">Function</span> CreateNewElement() _</pre>
+
+  <pre><span class="lnum"> 194:  </span>                                        <span class="kwrd">As</span> System.Configuration.ConfigurationElement</pre>
+
+  <pre class="alt"><span class="lnum"> 195:  </span>            <span class="kwrd">Return</span> <span class="kwrd">New</span> WindowSetting()</pre>
+
+  <pre><span class="lnum"> 196:  </span>        <span class="kwrd">End</span> <span class="kwrd">Function</span></pre>
+
+  <pre class="alt"><span class="lnum"> 197:  </span>&#160;</pre>
+
+  <pre><span class="lnum"> 198:  </span>        <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 199:  </span>        <span class="rem">''' Creates a new element with the id specified</span></pre>
+
+  <pre><span class="lnum"> 200:  </span>        <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 201:  </span>        <span class="rem">''' &lt;param name=&quot;id&quot;&gt;id of the new element&lt;/param&gt;</span></pre>
+
+  <pre><span class="lnum"> 202:  </span>        <span class="kwrd">Protected</span> <span class="kwrd">Overloads</span> <span class="kwrd">Function</span> CreateNewElement(<span class="kwrd">ByVal</span> id <span class="kwrd">As</span> <span class="kwrd">String</span>) _</pre>
+
+  <pre class="alt"><span class="lnum"> 203:  </span>                                        <span class="kwrd">As</span> System.Configuration.ConfigurationElement</pre>
+
+  <pre><span class="lnum"> 204:  </span>            <span class="kwrd">Return</span> <span class="kwrd">New</span> WindowSetting() <span class="kwrd">With</span> {.ID = id}</pre>
+
+  <pre class="alt"><span class="lnum"> 205:  </span>        <span class="kwrd">End</span> <span class="kwrd">Function</span></pre>
+
+  <pre><span class="lnum"> 206:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 207:  </span>        <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre><span class="lnum"> 208:  </span>        <span class="rem">''' Gets an element's key</span></pre>
+
+  <pre class="alt"><span class="lnum"> 209:  </span>        <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre><span class="lnum"> 210:  </span>        <span class="rem">''' &lt;param name=&quot;element&quot;&gt;element to test&lt;/param&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 211:  </span>        <span class="kwrd">Protected</span> <span class="kwrd">Overrides</span> <span class="kwrd">Function</span> GetElementKey( _</pre>
+
+  <pre><span class="lnum"> 212:  </span>                                <span class="kwrd">ByVal</span> element <span class="kwrd">As</span> System.Configuration.ConfigurationElement) _</pre>
+
+  <pre class="alt"><span class="lnum"> 213:  </span>                                <span class="kwrd">As</span> <span class="kwrd">Object</span></pre>
+
+  <pre><span class="lnum"> 214:  </span>            <span class="kwrd">Return</span> <span class="kwrd">DirectCast</span>(element, WindowSetting).ID</pre>
+
+  <pre class="alt"><span class="lnum"> 215:  </span>        <span class="kwrd">End</span> <span class="kwrd">Function</span></pre>
+
+  <pre><span class="lnum"> 216:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 217:  </span>        <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre><span class="lnum"> 218:  </span>        <span class="rem">''' Adds a new element to the collection</span></pre>
+
+  <pre class="alt"><span class="lnum"> 219:  </span>        <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre><span class="lnum"> 220:  </span>        <span class="rem">''' &lt;param name=&quot;element&quot;&gt;&lt;/param&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 221:  </span>        <span class="rem">''' &lt;remarks&gt;&lt;/remarks&gt;</span></pre>
+
+  <pre><span class="lnum"> 222:  </span>        <span class="kwrd">Public</span> <span class="kwrd">Sub</span> Add(<span class="kwrd">ByVal</span> element <span class="kwrd">As</span> WindowSetting)</pre>
+
+  <pre class="alt"><span class="lnum"> 223:  </span>            <span class="kwrd">MyBase</span>.BaseAdd(element)</pre>
+
+  <pre><span class="lnum"> 224:  </span>        <span class="kwrd">End</span> <span class="kwrd">Sub</span></pre>
+
+  <pre class="alt"><span class="lnum"> 225:  </span>&#160;</pre>
+
+  <pre><span class="lnum"> 226:  </span>        <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 227:  </span>        <span class="rem">''' Adds a new element to the collection by id</span></pre>
+
+  <pre><span class="lnum"> 228:  </span>        <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 229:  </span>        <span class="rem">''' &lt;param name=&quot;id&quot;&gt;id of the new element&lt;/param&gt;</span></pre>
+
+  <pre><span class="lnum"> 230:  </span>        <span class="kwrd">Public</span> <span class="kwrd">Function</span> AddNew(<span class="kwrd">ByVal</span> id <span class="kwrd">As</span> <span class="kwrd">String</span>) <span class="kwrd">As</span> WindowSetting</pre>
+
+  <pre class="alt"><span class="lnum"> 231:  </span>            <span class="kwrd">Dim</span> newElement <span class="kwrd">As</span> WindowSetting = <span class="kwrd">Me</span>.CreateNewElement(id)</pre>
+
+  <pre><span class="lnum"> 232:  </span>            Add(newElement)</pre>
+
+  <pre class="alt"><span class="lnum"> 233:  </span>            <span class="kwrd">Return</span> newElement</pre>
+
+  <pre><span class="lnum"> 234:  </span>        <span class="kwrd">End</span> <span class="kwrd">Function</span></pre>
+
+  <pre class="alt"><span class="lnum"> 235:  </span>&#160;</pre>
+
+  <pre><span class="lnum"> 236:  </span>        <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 237:  </span>        <span class="rem">''' Adds a new element to the collection by form</span></pre>
+
+  <pre><span class="lnum"> 238:  </span>        <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 239:  </span>        <span class="rem">''' &lt;param name=&quot;form&quot;&gt;form for the new element&lt;/param&gt;</span></pre>
+
+  <pre><span class="lnum"> 240:  </span>        <span class="kwrd">Public</span> <span class="kwrd">Function</span> AddNew(<span class="kwrd">ByVal</span> form <span class="kwrd">As</span> System.Windows.Forms.Form) _</pre>
+
+  <pre class="alt"><span class="lnum"> 241:  </span>                                                                <span class="kwrd">As</span> WindowSetting</pre>
+
+  <pre><span class="lnum"> 242:  </span>            <span class="kwrd">Dim</span> newElement <span class="kwrd">As</span> WindowSetting = <span class="kwrd">Me</span>.CreateNewElement(form.Name)</pre>
+
+  <pre class="alt"><span class="lnum"> 243:  </span>            newElement.Top = form.Top</pre>
+
+  <pre><span class="lnum"> 244:  </span>            newElement.Left = form.Left</pre>
+
+  <pre class="alt"><span class="lnum"> 245:  </span>            newElement.Height = form.Height</pre>
+
+  <pre><span class="lnum"> 246:  </span>            newElement.Width = form.Width</pre>
+
+  <pre class="alt"><span class="lnum"> 247:  </span>            Add(newElement)</pre>
+
+  <pre><span class="lnum"> 248:  </span>            <span class="kwrd">Return</span> newElement</pre>
+
+  <pre class="alt"><span class="lnum"> 249:  </span>        <span class="kwrd">End</span> <span class="kwrd">Function</span></pre>
+
+  <pre><span class="lnum"> 250:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 251:  </span>        <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre><span class="lnum"> 252:  </span>        <span class="rem">''' Removes an element by id</span></pre>
+
+  <pre class="alt"><span class="lnum"> 253:  </span>        <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre><span class="lnum"> 254:  </span>        <span class="rem">''' &lt;param name=&quot;id&quot;&gt;id of the element to remove&lt;/param&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 255:  </span>        <span class="kwrd">Public</span> <span class="kwrd">Sub</span> Remove(<span class="kwrd">ByVal</span> id <span class="kwrd">As</span> <span class="kwrd">String</span>)</pre>
+
+  <pre><span class="lnum"> 256:  </span>            <span class="kwrd">MyBase</span>.BaseRemove(id)</pre>
+
+  <pre class="alt"><span class="lnum"> 257:  </span>        <span class="kwrd">End</span> <span class="kwrd">Sub</span></pre>
+
+  <pre><span class="lnum"> 258:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 259:  </span>        <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre><span class="lnum"> 260:  </span>        <span class="rem">''' Clears all elements from the collection</span></pre>
+
+  <pre class="alt"><span class="lnum"> 261:  </span>        <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre><span class="lnum"> 262:  </span>        <span class="kwrd">Public</span> <span class="kwrd">Sub</span> Clear()</pre>
+
+  <pre class="alt"><span class="lnum"> 263:  </span>            <span class="kwrd">MyBase</span>.BaseClear()</pre>
+
+  <pre><span class="lnum"> 264:  </span>        <span class="kwrd">End</span> <span class="kwrd">Sub</span></pre>
+
+  <pre class="alt"><span class="lnum"> 265:  </span>&#160;</pre>
+
+  <pre><span class="lnum"> 266:  </span>        <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 267:  </span>        <span class="rem">''' Retrieves an item from the collection by index</span></pre>
+
+  <pre><span class="lnum"> 268:  </span>        <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 269:  </span>        <span class="rem">''' &lt;param name=&quot;index&quot;&gt;index of the element&lt;/param&gt;</span></pre>
+
+  <pre><span class="lnum"> 270:  </span>        <span class="kwrd">Default</span> <span class="kwrd">Public</span> <span class="kwrd">Overloads</span> <span class="kwrd">ReadOnly</span> <span class="kwrd">Property</span> Item(<span class="kwrd">ByVal</span> index <span class="kwrd">As</span> <span class="kwrd">Integer</span>) _</pre>
+
+  <pre class="alt"><span class="lnum"> 271:  </span>                                                                    <span class="kwrd">As</span> WindowSetting</pre>
+
+  <pre><span class="lnum"> 272:  </span>            <span class="kwrd">Get</span></pre>
+
+  <pre class="alt"><span class="lnum"> 273:  </span>                <span class="kwrd">Return</span> <span class="kwrd">MyBase</span>.BaseGet(index)</pre>
+
+  <pre><span class="lnum"> 274:  </span>            <span class="kwrd">End</span> <span class="kwrd">Get</span></pre>
+
+  <pre class="alt"><span class="lnum"> 275:  </span>        <span class="kwrd">End</span> <span class="kwrd">Property</span></pre>
+
+  <pre><span class="lnum"> 276:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 277:  </span>        <span class="rem">''' &lt;summary&gt;</span></pre>
+
+  <pre><span class="lnum"> 278:  </span>        <span class="rem">''' Retrieves an item from the collection by id</span></pre>
+
+  <pre class="alt"><span class="lnum"> 279:  </span>        <span class="rem">''' &lt;/summary&gt;</span></pre>
+
+  <pre><span class="lnum"> 280:  </span>        <span class="rem">''' &lt;param name=&quot;id&quot;&gt;id of the element&lt;/param&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum"> 281:  </span>        <span class="kwrd">Default</span> <span class="kwrd">Public</span> <span class="kwrd">Overloads</span> <span class="kwrd">ReadOnly</span> <span class="kwrd">Property</span> Item(<span class="kwrd">ByVal</span> id <span class="kwrd">As</span> <span class="kwrd">String</span>) _</pre>
+
+  <pre><span class="lnum"> 282:  </span>                                                                    <span class="kwrd">As</span> WindowSetting</pre>
+
+  <pre class="alt"><span class="lnum"> 283:  </span>            <span class="kwrd">Get</span></pre>
+
+  <pre><span class="lnum"> 284:  </span>                <span class="rem">'auto-add if not exists</span></pre>
+
+  <pre class="alt"><span class="lnum"> 285:  </span>                <span class="kwrd">If</span> <span class="kwrd">MyBase</span>.BaseGet(id) <span class="kwrd">Is</span> <span class="kwrd">Nothing</span> <span class="kwrd">Then</span></pre>
+
+  <pre><span class="lnum"> 286:  </span>                    <span class="kwrd">Me</span>.AddNew(id)</pre>
+
+  <pre class="alt"><span class="lnum"> 287:  </span>                <span class="kwrd">End</span> <span class="kwrd">If</span></pre>
+
+  <pre><span class="lnum"> 288:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 289:  </span>                <span class="kwrd">Return</span> <span class="kwrd">Me</span>.BaseGet(id)</pre>
+
+  <pre><span class="lnum"> 290:  </span>            <span class="kwrd">End</span> <span class="kwrd">Get</span></pre>
+
+  <pre class="alt"><span class="lnum"> 291:  </span>        <span class="kwrd">End</span> <span class="kwrd">Property</span></pre>
+
+  <pre><span class="lnum"> 292:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 293:  </span>    <span class="kwrd">End</span> <span class="kwrd">Class</span></pre>
+
+  <pre><span class="lnum"> 294:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 295:  </span><span class="preproc">#Region</span> <span class="str">&quot; IDisposable Support &quot;</span></pre>
+
+  <pre><span class="lnum"> 296:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 297:  </span>    <span class="kwrd">Private</span> disposedValue <span class="kwrd">As</span> <span class="kwrd">Boolean</span> = <span class="kwrd">False</span>        <span class="rem">' To detect redundant calls</span></pre>
+
+  <pre><span class="lnum"> 298:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 299:  </span>    <span class="rem">' IDisposable</span></pre>
+
+  <pre><span class="lnum"> 300:  </span>    <span class="kwrd">Protected</span> <span class="kwrd">Overridable</span> <span class="kwrd">Sub</span> Dispose(<span class="kwrd">ByVal</span> disposing <span class="kwrd">As</span> <span class="kwrd">Boolean</span>)</pre>
+
+  <pre class="alt"><span class="lnum"> 301:  </span>        <span class="kwrd">If</span> <span class="kwrd">Not</span> <span class="kwrd">Me</span>.disposedValue <span class="kwrd">Then</span></pre>
+
+  <pre><span class="lnum"> 302:  </span>            <span class="kwrd">If</span> disposing <span class="kwrd">Then</span></pre>
+
+  <pre class="alt"><span class="lnum"> 303:  </span>&#160;</pre>
+
+  <pre><span class="lnum"> 304:  </span>            <span class="kwrd">End</span> <span class="kwrd">If</span></pre>
+
+  <pre class="alt"><span class="lnum"> 305:  </span>&#160;</pre>
+
+  <pre><span class="lnum"> 306:  </span>        <span class="kwrd">End</span> <span class="kwrd">If</span></pre>
+
+  <pre class="alt"><span class="lnum"> 307:  </span>        <span class="kwrd">Me</span>.disposedValue = <span class="kwrd">True</span></pre>
+
+  <pre><span class="lnum"> 308:  </span>    <span class="kwrd">End</span> <span class="kwrd">Sub</span></pre>
+
+  <pre class="alt"><span class="lnum"> 309:  </span>&#160;</pre>
+
+  <pre><span class="lnum"> 310:  </span>    <span class="rem">' This code added by Visual Basic to correctly implement the disposable pattern.</span></pre>
+
+  <pre class="alt"><span class="lnum"> 311:  </span>    <span class="kwrd">Public</span> <span class="kwrd">Sub</span> Dispose() <span class="kwrd">Implements</span> IDisposable.Dispose</pre>
+
+  <pre><span class="lnum"> 312:  </span>        <span class="rem">' Do not change this code.</span></pre>
+
+  <pre class="alt"><span class="lnum"> 313:  </span>        Dispose(<span class="kwrd">True</span>)</pre>
+
+  <pre><span class="lnum"> 314:  </span>        GC.SuppressFinalize(<span class="kwrd">Me</span>)</pre>
+
+  <pre class="alt"><span class="lnum"> 315:  </span>    <span class="kwrd">End</span> <span class="kwrd">Sub</span></pre>
+
+  <pre><span class="lnum"> 316:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 317:  </span><span class="preproc">#End Region</span></pre>
+
+  <pre><span class="lnum"> 318:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 319:  </span><span class="kwrd">End</span> <span class="kwrd">Class</span></pre>
+
+  <pre><span class="lnum"> 320:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum"> 321:  </span>&#160;</pre>
+</div>
+
+<p>&#160;</p>
+
+<p>C# Version provided by request.</p>
+
+<p></p>
+
+<p></p>
+
+<p></p>
+
+<p></p>
+
+<p></p>
+
+<p></p>
+
+<p></p>
+
+<p></p>
+
+<p></p>
+
+<p></p>
+
+<p>&#160;</p>
+
+<blockquote>
+  <p><em>*Sorry about formatting, I don’t normally use underscores to break lines other than for attributes, but the page is skinny and I didn’t want any overrun.</em></p></blockquote><img src="http://renevo.com/aggbug.aspx?PostID=2128" width="1" height="1">

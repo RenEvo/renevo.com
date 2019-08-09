@@ -21,6 +21,7 @@ import (
 	"github.com/op/go-logging"
 )
 
+
 var minWordCount = flag.Int("min-words", 100, "The minimum amount of words to keep")
 
 func main() {
@@ -68,6 +69,7 @@ type BlogImporter struct {
 
 func NewBlogImporter(logger *logging.Logger, config *BlogImporterConfig) *BlogImporter {
 	config.OutputDir = path.Clean(config.OutputDir)
+	os.MkdirAll(config.OutputDir, 0600)
 
 	return &BlogImporter{
 		logger: logger,

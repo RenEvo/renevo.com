@@ -1,0 +1,146 @@
+<p>First, lets define some terms in the basics:</p>  <p><strong>IOC</strong>: <a href="http://en.wikipedia.org/wiki/Inversion_of_control" target="_blank">Inversion of Control</a>     <br />IOC is quite simply, handing off responsibility to another system based on a known contract.</p>  <p><strong>DI</strong>: <a href="http://en.wikipedia.org/wiki/Dependency_injection" target="_blank">Dependency Injection</a>     <br />DI is the act of, for lack of a better term, injecting those known contracts at runtime.</p>  <p><strong>Composite</strong>:     <br /><a href="http://en.wikipedia.org/wiki/Composite_pattern" target="_blank">Composition</a> is the taking many of those known contracts, and acting on them all as one.</p>  <p>As the years go by, it comes to me that more and more, these terms get mixed together, without any clarification of what they each really do. To help illustrate the differences in how these work, I am going to use a known system that utilizes all three of these. Hopefully at the end of this little sample, you will see what pattern/practice you really need to be using.</p>  <p><strong>Asp.Net Membership.</strong></p>  <p>Anyone who has ever done a website should have known about this specific static method call: </p>  <div class="csharpcode">   <pre class="alt"><span class="lnum">   1:  </span>Membership.GetUser();</pre>
+</div>
+<p>This is a perfect example of Inversion of Control.&#160; Behind the scenes, you are simply talking to a known contract (MembershipProvider) that then implements the abstract method “GetUser”. Instead of accessing the helper method “GetUser” you could talk directly to the default provider to validate a user:</p>
+
+<div class="csharpcode">
+  <pre class="alt"><span class="lnum">   1:  </span><span class="kwrd">bool</span> validUser = Membership.Provider.ValidateUser(<span class="str">&quot;username&quot;</span>, <span class="str">&quot;password&quot;</span>);</pre>
+</div>
+<p>This is no different, and no matter what <a href="http://msdn.microsoft.com/en-us/library/system.web.security.membershipprovider.aspx" target="_blank">MembershipProvider</a> is being implemented, you know that this will return an expected result.</p>
+
+<p>This then begs the question, how does the Membership.Provider get populated with a MembershipProvider? This is where a minor version of dependency injection occurs.</p>
+
+<p>Deep in the delves of your machine.config, there is a setting that says the default Membership Provider is named “AspNetSqlMembershipProvider” and is of type: “<a href="http://msdn.microsoft.com/en-us/library/system.web.security.sqlmembershipprovider.aspx" target="_blank">System.Web.Security.SqlMembershipProvider</a>”. If for any chance you went in your web.config and in the system.web/membership/provider collection and did a &lt;clear /&gt; and attempted to call the Membership.GetUser, it would throw an exception stating that there isn’t a default Membership Provider. In this case, the Membership static class is acting as a DI container for the Provider.</p>
+
+<p>From <a href="http://stackoverflow.com/questions/2325473/where-is-machine-config" target="_blank">machine.config</a> (C:\windows\microsoft.net\framework\v4.0.30319\Config\machine.config):</p>
+
+<div class="csharpcode">
+  <pre class="alt"><span class="lnum">   1:  </span>        <span class="kwrd">&lt;</span><span class="html">membership</span><span class="kwrd">&gt;</span></pre>
+
+  <pre><span class="lnum">   2:  </span>            <span class="kwrd">&lt;</span><span class="html">providers</span><span class="kwrd">&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">   3:  </span>                <span class="kwrd">&lt;</span><span class="html">add</span> <span class="attr">name</span><span class="kwrd">=&quot;AspNetSqlMembershipProvider&quot;</span> <span class="attr">type</span><span class="kwrd">=&quot;System.Web.Security.SqlMembershipProvider</span></pre>
+
+  <pre><span class="lnum">   4:  </span>            <span class="kwrd">&lt;/</span><span class="html">providers</span><span class="kwrd">&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">   5:  </span>        <span class="kwrd">&lt;/</span><span class="html">membership</span><span class="kwrd">&gt;</span></pre>
+</div>
+<p>Now comes my favorite, Composition. </p>
+
+<p>The <a href="http://msdn.microsoft.com/en-us/library/system.web.security.membership.aspx" target="_blank">Membership</a> static class provides not just DI and IOC, but it also provides for Composition, which is taking multiple implementations of a single contract and treating them as one. To take advantage of the Composite implementation of MembershipProvider you would use this type of code:</p>
+
+<div class="csharpcode">
+  <pre class="alt"><span class="lnum">   1:  </span>            <span class="kwrd">bool</span> validUser = <span class="kwrd">false</span>;</pre>
+
+  <pre><span class="lnum">   2:  </span>            <span class="kwrd">foreach</span> (MembershipProvider provider <span class="kwrd">in</span> Membership.Providers)</pre>
+
+  <pre class="alt"><span class="lnum">   3:  </span>                <span class="kwrd">try</span></pre>
+
+  <pre><span class="lnum">   4:  </span>                {</pre>
+
+  <pre class="alt"><span class="lnum">   5:  </span>                    <span class="kwrd">if</span> (provider.ValidateUser(<span class="str">&quot;username&quot;</span>, <span class="str">&quot;password&quot;</span>))</pre>
+
+  <pre><span class="lnum">   6:  </span>                        validUser = <span class="kwrd">true</span>;</pre>
+
+  <pre class="alt"><span class="lnum">   7:  </span>                }</pre>
+
+  <pre><span class="lnum">   8:  </span>                <span class="kwrd">catch</span> (Exception)</pre>
+
+  <pre class="alt"><span class="lnum">   9:  </span>                {</pre>
+
+  <pre><span class="lnum">  10:  </span>                    <span class="rem">// TODO: Log Here</span></pre>
+
+  <pre class="alt"><span class="lnum">  11:  </span>                }</pre>
+</div>
+<p>Essentially, we are asking ALL of the membership providers if they can validate this user, if so awesome, if not the user is not valid.</p>
+
+<p>*Adding a new membership provider through DI for composition/IOC</p>
+
+<div class="csharpcode">
+  <pre class="alt"><span class="lnum">   1:  </span>    <span class="kwrd">&lt;</span><span class="html">membership</span> <span class="attr">defaultProvider</span><span class="kwrd">=&quot;MyProvider&quot;</span><span class="kwrd">&gt;</span></pre>
+
+  <pre><span class="lnum">   2:  </span>      <span class="kwrd">&lt;</span><span class="html">providers</span><span class="kwrd">&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">   3:  </span>        <span class="kwrd">&lt;</span><span class="html">add</span> <span class="attr">name</span><span class="kwrd">=&quot;MyProvider&quot;</span> <span class="attr">type</span><span class="kwrd">=&quot;MyNamespace.MyProvider&quot;</span><span class="kwrd">/&gt;</span></pre>
+
+  <pre><span class="lnum">   4:  </span>      <span class="kwrd">&lt;/</span><span class="html">providers</span><span class="kwrd">&gt;</span></pre>
+
+  <pre class="alt"><span class="lnum">   5:  </span>    <span class="kwrd">&lt;/</span><span class="html">membership</span><span class="kwrd">&gt;</span></pre>
+</div>
+
+<p>The above sample would now attempt to call the AspNetSqlMembershipProvider as well as MyProvider to validate a user, while the Membership.ValidateUser would only call MyProvider.</p>
+
+
+
+<hr />
+
+
+
+<p>For this article I just wanted to take a few minutes to briefly touch on the subtle differences between these patterns/practices, as well as clearly separating out what IOC was. I have seen in many many cases where DI was used for Composition (Unfortunately most frameworks mix these two via Resolve&lt;&gt; and ResolveAll&lt;&gt;) or IOC.</p>
+
+<hr />
+
+<p>If you are just trying to make your code testable, use IOC and provide the required contracts in your constructor, with an optional default constructor that assembles them from working implementations.</p>
+
+<div class="csharpcode">
+  <pre class="alt"><span class="lnum">   1:  </span>&#160;</pre>
+
+  <pre><span class="lnum">   2:  </span>        <span class="kwrd">public</span> <span class="kwrd">class</span> RequiredInterface : IRequiredInterface</pre>
+
+  <pre class="alt"><span class="lnum">   3:  </span>        { }</pre>
+
+  <pre><span class="lnum">   4:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">   5:  </span>        <span class="kwrd">public</span> <span class="kwrd">interface</span> IRequiredInterface</pre>
+
+  <pre><span class="lnum">   6:  </span>        {</pre>
+
+  <pre class="alt"><span class="lnum">   7:  </span>&#160;</pre>
+
+  <pre><span class="lnum">   8:  </span>        }</pre>
+
+  <pre class="alt"><span class="lnum">   9:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  10:  </span>        <span class="kwrd">public</span> <span class="kwrd">class</span> RequiredInterfaceConsumer</pre>
+
+  <pre class="alt"><span class="lnum">  11:  </span>        {</pre>
+
+  <pre><span class="lnum">  12:  </span>            <span class="kwrd">private</span> IRequiredInterface _required;</pre>
+
+  <pre class="alt"><span class="lnum">  13:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  14:  </span>            <span class="kwrd">public</span> RequiredInterfaceConsumer()</pre>
+
+  <pre class="alt"><span class="lnum">  15:  </span>            {</pre>
+
+  <pre><span class="lnum">  16:  </span>                _required = <span class="kwrd">new</span> RequiredInterface();</pre>
+
+  <pre class="alt"><span class="lnum">  17:  </span>            }</pre>
+
+  <pre><span class="lnum">  18:  </span>&#160;</pre>
+
+  <pre class="alt"><span class="lnum">  19:  </span>            <span class="kwrd">public</span> RequiredInterfaceConsumer(IRequiredInterface required)</pre>
+
+  <pre><span class="lnum">  20:  </span>            {</pre>
+
+  <pre class="alt"><span class="lnum">  21:  </span>                <span class="kwrd">if</span> (required == <span class="kwrd">null</span>)</pre>
+
+  <pre><span class="lnum">  22:  </span>                    <span class="kwrd">throw</span> <span class="kwrd">new</span> ArgumentNullException(<span class="str">&quot;required&quot;</span>);</pre>
+
+  <pre class="alt"><span class="lnum">  23:  </span>&#160;</pre>
+
+  <pre><span class="lnum">  24:  </span>                _required = required;</pre>
+
+  <pre class="alt"><span class="lnum">  25:  </span>            }</pre>
+
+  <pre><span class="lnum">  26:  </span>        }</pre>
+</div>
+
+<p>This is all that is required to make a class testable with dependencies, the IRequiredInterface can be mocked using any type of manual process, or mocking framework.</p>
+
+<p>Only use DI where you expect frequent enough changes to the implementation of the contract. You should always prefer <a href="http://en.wikipedia.org/wiki/Orchestration_(computers)" target="_blank">orchestration</a> over DI whenever possible.</p>
+
+<p>Only use Composition where it makes sense such as when you need to treat multiple objects like a single object.</p>
+
+<hr />
+
+<p>Once again, Composition/IOC do not require DI.</p><img src="http://renevo.com/aggbug.aspx?PostID=2377" width="1" height="1">

@@ -1,0 +1,70 @@
+<P>Adding Pages to Community Server 2007</P>
+<P>Well, here I am again, and I have finally taken a bit of my time to setup a new CS 2007 website. Even though the steps are pretty similar, there are some changes to the new Community Server.&nbsp; Below I will outline the steps required to add new pages with skinning support to your Community Server 2007 website.<BR>In the previous article on adding pages to CS 2.1, I would have had you copy files and cut out content, for this article we will be creating everything from scratch.</P>
+<P><STRONG>Step 1</STRONG><BR>Start off by creating a new directory called "Sample" in your root web directory. (referred to web/sample/ from here on out).</P>
+<P>Now create a new text file called "Default.aspx", open up this file with notepad, and add the following lines.</P>
+<BLOCKQUOTE>
+<BLOCKQUOTE>
+<P><EM>&lt;%@ Page %&gt;<BR>&lt;%-- <BR>This is my placeholder, my actual file is located in web/themes/[THEME NAME]/sample/sample.aspx<BR>--%&gt;<BR></P></BLOCKQUOTE></BLOCKQUOTE></EM>
+<P>You should now be able to navigate to this page without any issues. (<A href="http://www.yourdomain.com/test/">http://www.yourdomain.com/test/</A>)</P>
+<P><STRONG>Step 2 - Creating the themed page</STRONG><BR><EM>For this article, I will only be covering how to do this on the default theme, you can pretty much apply this to all other themes.</EM></P>
+<P>In your web/Themes/ directory, create a new directory called "sample".</P>
+<P>Next, create a new text file and name it "sample.master", open up this file with notepad, and add the following lines.</P>
+<BLOCKQUOTE>
+<BLOCKQUOTE>
+<P><EM>&lt;%@ Master Language="C#" AutoEventWireup="true" MasterPageFile="../Common/master.Master" %&gt;</EM></P></BLOCKQUOTE></BLOCKQUOTE>
+<BLOCKQUOTE>
+<BLOCKQUOTE>
+<P><EM>&lt;asp:Content ContentPlaceHolderID="HeaderRegion" runat="server" &gt;<BR>&nbsp;&nbsp;&nbsp; &lt;CSControl:SelectedNavigation Selected="sample" runat="Server" /&gt;<BR>&nbsp;&nbsp;&nbsp; &lt;CSControl:ThemeStyle runat="server" href="~/style/forum.css" mce_href="~/style/forum.css" /&gt;<BR>&nbsp;&nbsp;&nbsp; &lt;CSControl:ThemeStyle runat="server" href="~/style/gallery.css" mce_href="~/style/gallery.css" /&gt;<BR>&nbsp;&nbsp;&nbsp; &lt;CSControl:ThemeStyle runat="server" href="~/style/forum_print.css" mce_href="~/style/forum_print.css" media="print" /&gt;<BR>&nbsp;&nbsp;&nbsp; &lt;CSControl:ThemeStyle runat="server" href="~/style/gallery_print.css" mce_href="~/style/gallery_print.css" media="print" /&gt;<BR>&lt;/asp:Content&gt;</EM></P>
+<P><EM>&lt;asp:Content ContentPlaceHolderID="bcr" runat="server"&gt;<BR>&nbsp;&nbsp;&nbsp; &lt;asp:ContentPlaceHolder id="bcr" runat="server" /&gt;<BR>&lt;/asp:Content&gt;</EM></P>
+<P><EM>&lt;asp:Content ContentPlaceHolderID="rcr" runat="server" &gt;<BR>&nbsp;&nbsp;&nbsp; &lt;asp:ContentPlaceHolder ID="rcr" runat="server" /&gt;<BR>&lt;/asp:Content&gt;</EM></P></BLOCKQUOTE></BLOCKQUOTE>
+<P>Just to explain a bit, we have created a new master page that inherits the master.Master for the website, we have overridden the header region to select the "sample" page, and finally we have created two content regions for the page (CS 2007 style).</P>
+<P>At this point, you can add any custom code to the your new pages "main" template, but for now, lets just leave it as is.</P>
+<P>Now, lets create another text file, and call it "sample.aspx" and open it up in notepad.</P>
+<P>The first thing we want to do in this file, is all of the standard asp.net page definitions, as well as import some common namespaces, useful for coding later on.&nbsp; This also keeps our "ad support".</P>
+<BLOCKQUOTE>
+<BLOCKQUOTE>
+<P><EM>&lt;%@ Page EnableViewState="false" Language="C#" AutoEventWireup="true" Inherits="CommunityServer.Controls.CSThemePage" MasterPageFile="sample.Master" %&gt;<BR>&lt;%@ Import Namespace="CommunityServer.Components" %&gt;<BR>&lt;%@ Import Namespace="System.Collections.Generic" %&gt;<BR>&lt;%@ Register TagPrefix="CSUserControl" TagName="AdTop" src="../Common/Ad-Top.ascx" mce_src="../Common/Ad-Top.ascx" %&gt;<BR>&lt;%@ Register TagPrefix="CSUserControl" TagName="AdBottom" src="../Common/Ad-Bottom.ascx" mce_src="../Common/Ad-Bottom.ascx" %&gt;</EM></P></BLOCKQUOTE></BLOCKQUOTE>
+<P>Next, we will set the pages title, this is something that I can't remember seeing in CS 2.1, its quite useful for creating "sub" sites within your main site.&nbsp; For now we will set the title to the default site name.</P>
+<BLOCKQUOTE>
+<BLOCKQUOTE>
+<P><EM>&lt;script language="C#" runat="server"&gt;</EM></P>
+<P><EM>&nbsp;&nbsp;&nbsp; void Page_Load()<BR>&nbsp;&nbsp;&nbsp; {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; SetTitle(CurrentCSContext.SiteSettings.SiteName, false);<BR>&nbsp;&nbsp;&nbsp; }</EM></P>
+<P><EM>&lt;/script&gt;</EM></P></BLOCKQUOTE></BLOCKQUOTE>
+<P>Now we will move on to adding our bcr area or, Body Content Area.&nbsp; This is much cleaner then the previous way of adding content parts, as you now don't have to be a html code guru and can simply enter in regular html code.</P>
+<BLOCKQUOTE>
+<BLOCKQUOTE>
+<P><EM>&lt;asp:Content ID="Content1" ContentPlaceHolderID="bcr" runat="server"&gt;<BR>&nbsp;&nbsp;&nbsp; &lt;div class="CommonContentArea"&gt;<BR>&nbsp;&lt;CSControl:AdPart runat = "Server" contentname="StandardTop" ContentCssClass="CommonContentPartBorderOff" ContentHoverCssClass="CommonContentPartBorderOn"&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp; &lt;DefaultContentTemplate&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;CSUserControl:AdTop runat="server" /&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp; &lt;/DefaultContentTemplate&gt;<BR>&nbsp;&lt;/CSControl:AdPart&gt;</EM></P>
+<P><EM>&nbsp;&lt;div class="CommonContent"&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;CSControl:ContentPart ContentName="sample" runat="server" ContentCssClass="CommonContentPartBorderOff" ContentHoverCssClass="CommonContentPartBorderOn"&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;DefaultContentTemplate&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;h2 class="CommonTitle"&gt;Sample Page&lt;/h2&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;div class="CommonContent"&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;div style="line-height: 140%;"&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp; You have created a sample page!<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;/div&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;/div&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;/DefaultContentTemplate&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;/CSControl:ContentPart&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <BR>&nbsp;&lt;/div&gt;<BR>&nbsp;<BR>&nbsp;&lt;CSControl:AdPart runat="Server" ContentName="StandardBottom" ContentCssClass="CommonContentPartBorderOff" ContentHoverCssClass="CommonContentPartBorderOn"&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp; &lt;DefaultContentTemplate&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;CSUserControl:AdBottom runat="server" /&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp; &lt;/DefaultContentTemplate&gt;<BR>&nbsp;&lt;/CSControl:AdPart&gt;<BR>&nbsp;&nbsp;&nbsp; &lt;/div&gt;<BR>&lt;/asp:Content&gt;</EM></P></BLOCKQUOTE></BLOCKQUOTE>
+<P>Finally, lets add our rcr area or, Right Content Area.</P>
+<BLOCKQUOTE>
+<BLOCKQUOTE>
+<P><EM>&lt;asp:Content ContentPlaceHolderID="rcr" runat="server"&gt;<BR>&nbsp;&nbsp;&nbsp; &lt;div class="CommonSidebar"&gt;<BR>&nbsp;&lt;CSControl:ContentPart ContentName="sampleSidebar1" runat="server" ContentCssClass="CommonContentPartBorderOff" ContentHoverCssClass="CommonContentPartBorderOn"&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;DefaultContentTemplate&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;div class="CommonSidebarArea"&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp; &lt;div class="CommonSidebarRoundTop"&gt;&lt;div class="r1"&gt;&lt;/div&gt;&lt;div class="r2"&gt;&lt;/div&gt;&lt;div class="r3"&gt;&lt;/div&gt;&lt;div class="r4"&gt;&lt;/div&gt;&lt;/div&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp; &lt;div class="CommonSidebarInnerArea"&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;h4 class="CommonSidebarHeader"&gt;Sidebar 1&lt;/h4&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;div class="CommonSidebarContent"&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;p&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Sign-in with your Admin account and double-click to edit me!<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;/p&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;/div&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp; &lt;/div&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp; &lt;div class="CommonSidebarRoundBottom"&gt;&lt;div class="r1"&gt;&lt;/div&gt;&lt;div class="r2"&gt;&lt;/div&gt;&lt;div class="r3"&gt;&lt;/div&gt;&lt;div class="r4"&gt;&lt;/div&gt;&lt;/div&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;/div&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;/DefaultContentTemplate&gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;/CSControl:ContentPart&gt;<BR>&nbsp;&nbsp;&nbsp; &lt;/div&gt;<BR>&lt;/asp:Content&gt;</EM></P></BLOCKQUOTE></BLOCKQUOTE>
+<P>Now save the file, and go ahead and close it.</P>
+<P><STRONG>Adding the page to the SiteUrls</STRONG><BR>Unlike CS 2.1, you must complete this next step for a page to even load in the web application.</P>
+<P>Open up the "SiteUrls.config" file with notepad.</P>
+<P>Scroll down to around line 562. You will see a comment that says "When adding custom locations, add above here."&nbsp; We are going to do just that.</P>
+<P>Add the following just above the comment.</P>
+<BLOCKQUOTE>
+<BLOCKQUOTE>
+<P><EM>&nbsp; &lt;location name="sample" path="/sample/" themeDir="sample"&gt;<BR>&nbsp;&nbsp;&nbsp; &lt;url name="samplehome" path="" pattern="default.aspx" vanity="{2}" physicalPath="##themeDir##" page="sample.aspx" /&gt;<BR>&nbsp; &lt;/location&gt;</EM></P></BLOCKQUOTE></BLOCKQUOTE>
+<P>Now, before you go jumping off to your newly created page, we have a few more things to do, or else you are going to get some errors.</P>
+<P><STRONG>Adding the link to the top menu</STRONG><BR>With the SiteUrls.config file still open, scroll down the bottom to the "navigation" section.&nbsp; Just under the "home" link, add the following.</P>
+<BLOCKQUOTE>
+<BLOCKQUOTE>
+<P><EM>&lt;link name="sample" resourceUrl="samplehome" resourceName="sample" roles="Everyone" /&gt;</EM></P></BLOCKQUOTE></BLOCKQUOTE>
+<P>Save the file, and go ahead and close the SiteUrls.config.</P>
+<P>As you noticed in my previous articles, until you add the resource to the resources.xml, your link will not show up on the main link menu.</P>
+<P>Navigate to "web/languages/[YOUR LANGUAGE]/" and open up the file "Resources.xml" with notepad.</P>
+<P>Around line 44, you will see the text "&lt;!-- Main Navigation --&gt;"&nbsp; just below the "Home" resource, add the following code.</P>
+<BLOCKQUOTE>
+<BLOCKQUOTE>
+<P><EM>&lt;resource name="sample"&gt;Sample&lt;/resource&gt;</EM></P></BLOCKQUOTE></BLOCKQUOTE>
+<P>Save the file.</P>
+<P><STRONG>Restarting the web application</STRONG><BR>At this point we need to just "touch" the web.config file, this is done by opening the file with notepad, saving, then closing the file.</P>
+<P><STRONG>Navigate to your newly created page</STRONG><BR>Finally, you should be able to goto your home page, click on the sample link, and see your new page!</P>
+<P>If you don't see it, start back at the beginning and find out what you did wrong.&nbsp; Or post up in my forums for help and I will try to help you out.</P>
+<P><STRONG>Conclusion</STRONG><BR>This concludes this article, all in all I think that adding and modifying pages in CS 2007 is much easier, and allows much more flexibility then the previous version.&nbsp; So go out there, be creative, and see what you can do!</P>
+<P><STRONG>Download Links</STRONG></P>
+<P>You can download all of the modifications here: <EM><A href="http://www.renevo.com/files/folders/articles_cs/entry1129.aspx" target=_blank>CommunityServer 2007 Sample Page</A></EM></P>
+<P>You can see this article in action at: <A href="http://www.swglabs.com/">http://www.swglabs.com</A></P>
+<P>&nbsp;</P><img src="http://renevo.com/aggbug.aspx?PostID=1128" width="1" height="1">
